@@ -1,0 +1,5 @@
+# Build artifacts
+.cm
+
+# MacOS artifacts
+.DS_Store
