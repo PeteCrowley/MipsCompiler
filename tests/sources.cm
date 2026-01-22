@@ -3,5 +3,5 @@ Group is
 $/basis.cm
 $/smlnj-lib.cm
 
-src/helloworld.sml
-tests/sources.cm
+echo.sml
+testing.sml
