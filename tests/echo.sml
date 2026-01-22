@@ -1,4 +1,4 @@
-structure Echo = 
+structure Echo =
 struct
-    fun echo s = s
+  fun echo s = s
 end
