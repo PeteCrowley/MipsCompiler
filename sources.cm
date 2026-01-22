@@ -4,3 +4,5 @@ $/basis.cm
 $/smlnj-lib.cm
 
 src/helloworld.sml
+tests/echo.sml
+tests/testing.sml
