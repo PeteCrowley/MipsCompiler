@@ -12,6 +12,28 @@ val stringStartPos = ref 0
 val charsReadByString = ref ([] : char list)
 val numCharsReadByString = ref 0
 
+structure CharOrd : ORD_KEY =
+struct
+    type ord_key = char
+    val compare = Char.compare
+end
+structure CharMap : ORD_MAP = RedBlackMapFn(CharOrd)
+
+val escapeMap =
+    let
+        val pairs = [
+            (#"\\", #"\\"),
+            (#"\"", #"\""),
+            (#"b", #"\b"),
+            (#"n", #"\n"),
+            (#"t", #"\t")
+        ]
+        fun insert ((k, v), m) = CharMap.insert (m, k, v)
+	val f = foldl insert CharMap.empty
+    in
+        f pairs
+    end
+
 fun eof() = 
     let 
         val pos = hd(!linePos) 
@@ -28,7 +50,7 @@ printable = [ -~];
 
 
 <INITIAL> \n    => (lineNum := !lineNum+1; linePos := yypos :: !linePos; continue());
-<INITIAL> [" " | \t]   => (continue());
+<INITIAL> (" " | \t)   => (continue());
 
 <INITIAL> ":="  => (Tokens.ASSIGN(yypos, yypos+2));
 <INITIAL> "&"   => (Tokens.AND(yypos, yypos+1));
@@ -65,24 +87,26 @@ printable = [ -~];
 <COMMENT> \n    => (lineNum := !lineNum+1; linePos := yypos :: !linePos; continue());
 <COMMENT> . => (continue());
 
-<INITIAL> "\""  => (
+<INITIAL> \"    => (
     YYBEGIN STRING;
     charsReadByString := [];
     stringStartPos := yypos;
     numCharsReadByString := 0;
     continue()
 );
-<STRING> "\\"{printable} => (
-    numCharsReadByString := !numCharsReadByString + 1;
-    charsReadByString := (String.sub (yytext, 1)) :: !charsReadByString;
-    continue()
+<STRING> \\{printable} => (
+    let
+        val escapeIdentifier = String.sub (yytext, 1)
+        val escapeTrueChar = CharMap.find (escapeMap, escapeIdentifier)
+	val () = numCharsReadByString := !numCharsReadByString + 2;
+	val () = case escapeTrueChar of
+              NONE => (ErrorMsg.error yypos ("illegal escape sequence " ^ yytext); ())
+            | SOME chr => (charsReadByString := chr :: (!charsReadByString); ())
+    in
+        continue()
+    end
 );
-<STRING> {printable} => (
-    numCharsReadByString := !numCharsReadByString + 1;
-    charsReadByString := (String.sub (yytext, 0)) :: !charsReadByString;
-    continue()
-);
-<STRING> "\"" => (
+<STRING> \" => (
     let
         val string = String.implode (List.rev (!charsReadByString))
         val strBegin = !stringStartPos
@@ -92,7 +116,12 @@ printable = [ -~];
         Tokens.STRING(string, strBegin, strEnd)
     end
 );
+<STRING> {printable} => (
+    numCharsReadByString := !numCharsReadByString + 1;
+    charsReadByString := (String.sub (yytext, 0)) :: !charsReadByString;
+    continue()
+);
 <STRING> \n   => (ErrorMsg.error yypos "illegal EOL in string literal"; continue());
-<STRING> .    => (ErrorMsg.error yypos ("illegal character " ^ yytext); continue());
+<STRING> .    => (ErrorMsg.error yypos ("illegal character in string " ^ yytext); continue());
 
 <INITIAL> . => (ErrorMsg.error yypos ("illegal character " ^ yytext); continue());
