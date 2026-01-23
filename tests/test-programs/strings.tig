@@ -1,0 +1,15 @@
+"hello"
+"hello\n"
+"hello^<>@#"
+"hello\\"
+"hello\""
+"hello\t"
+"hello^C"
+"^@"
+"^_"
+"\123"
+"\     
+\continue after tab space and return"
+"\
+doesn't continue"
+"\illegal"

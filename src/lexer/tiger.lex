@@ -18,6 +18,7 @@ fun eof() =
 %% 
 %s COMMENT;
 digit= [0-9];
+escapeSeq = \\(n | t | \" | \\ | \^[{@A-Z\[\]\\^_}] | [0-9][0-9][0-9] | (\n | \t | " ")+\\);
 
 %%
 
@@ -53,6 +54,8 @@ digit= [0-9];
     case Int.fromString yytext of
         SOME n => n
         | NONE => 0, yypos, yypos + String.size yytext));
+
+<INITIAL> \"([ -[\]-~] | {escapeSeq})*\" => (Tokens.STRING(yytext, yypos, yypos + String.size yytext));
 
 <INITIAL> . => (ErrorMsg.error yypos ("illegal character " ^ yytext); continue());
 
