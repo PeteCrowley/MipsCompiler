@@ -9,7 +9,7 @@ val commentDepth = ref 0
 
 val stringStartPos = ref 0
 (* Note: Characters accumulate in the front *)
-val charsReadByString = []
+val charsReadByString = ref ([] : char list)
 val numCharsReadByString = ref 0
 
 fun eof() = 
@@ -21,8 +21,7 @@ fun eof() =
     end
 
 %% 
-%s COMMENT;
-%s STRING;
+%s STRING COMMENT;
 digit= [0-9];
 printable = [ -~];
 %%
@@ -70,32 +69,29 @@ printable = [ -~];
     YYBEGIN STRING;
     charsReadByString := [];
     stringStartPos := yypos;
-    numCharsRead = 0;
+    numCharsReadByString := 0;
     continue()
 );
 <STRING> "\\"{printable} => (
-    let
-        val character = STRING.sub yytext 1
-    in 
-        numCharsRead := !numCharsRead + 1;
-        charsReadByString := character :: !charsReadByString;
-	continue()
-    end
+    numCharsReadByString := !numCharsReadByString + 1;
+    charsReadByString := (String.sub (yytext, 1)) :: !charsReadByString;
+    continue()
 );
 <STRING> {printable} => (
-    numCharsRead := !numCharsRead + 1;
-    charsReadByString = STRING.sub yytext 0 :: !charsReadByString;
+    numCharsReadByString := !numCharsReadByString + 1;
+    charsReadByString := (String.sub (yytext, 0)) :: !charsReadByString;
     continue()
 );
 <STRING> "\"" => (
     let
-        val string = String.implode (List.rev !charsReadByString)
+        val string = String.implode (List.rev (!charsReadByString))
         val strBegin = !stringStartPos
         val strEnd = strBegin + !numCharsReadByString
     in
+        YYBEGIN INITIAL;
         Tokens.STRING(string, strBegin, strEnd)
     end
-YYBEGIN INITIAL; )
+);
 <STRING> \n   => (ErrorMsg.error yypos "illegal EOL in string literal"; continue());
 <STRING> .    => (ErrorMsg.error yypos ("illegal character " ^ yytext); continue());
 
