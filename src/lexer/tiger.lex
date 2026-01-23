@@ -7,6 +7,11 @@ fun err(p1,p2) = ErrorMsg.error p1
 
 val commentDepth = ref 0
 
+val stringStartPos = ref 0
+(* Note: Characters accumulate in the front *)
+val charsReadByString = []
+val numCharsReadByString = ref 0
+
 fun eof() = 
     let 
         val pos = hd(!linePos) 
@@ -17,9 +22,9 @@ fun eof() =
 
 %% 
 %s COMMENT;
+%s STRING;
 digit= [0-9];
-escapeSeq = \\(n | t | \" | \\ | \^[{@A-Z\[\]\\^_}] | [0-9][0-9][0-9] | (\n | \t | " ")+\\);
-
+printable = [ -~];
 %%
 
 
@@ -55,12 +60,43 @@ escapeSeq = \\(n | t | \" | \\ | \^[{@A-Z\[\]\\^_}] | [0-9][0-9][0-9] | (\n | \t
         SOME n => n
         | NONE => 0, yypos, yypos + String.size yytext));
 
-<INITIAL> \"([ -[\]-~] | {escapeSeq})*\" => (Tokens.STRING(yytext, yypos, yypos + String.size yytext));
-
-<INITIAL> . => (ErrorMsg.error yypos ("illegal character " ^ yytext); continue());
-
 <INITIAL> "/*"  => (YYBEGIN COMMENT; commentDepth := 1; continue());
 <COMMENT> "/*"  => (commentDepth := !commentDepth + 1; continue());
 <COMMENT> "*/"  => (commentDepth := !commentDepth - 1; if !commentDepth = 0 then (YYBEGIN INITIAL; continue()) else continue());
 <COMMENT> \n    => (lineNum := !lineNum+1; linePos := yypos :: !linePos; continue());
 <COMMENT> . => (continue());
+
+<INITIAL> "\""  => (
+    YYBEGIN STRING;
+    charsReadByString := [];
+    stringStartPos := yypos;
+    numCharsRead = 0;
+    continue()
+);
+<STRING> "\\"{printable} => (
+    let
+        val character = STRING.sub yytext 1
+    in 
+        numCharsRead := !numCharsRead + 1;
+        charsReadByString := character :: !charsReadByString;
+	continue()
+    end
+);
+<STRING> {printable} => (
+    numCharsRead := !numCharsRead + 1;
+    charsReadByString = STRING.sub yytext 0 :: !charsReadByString;
+    continue()
+);
+<STRING> "\"" => (
+    let
+        val string = String.implode (List.rev !charsReadByString)
+        val strBegin = !stringStartPos
+        val strEnd = strBegin + !numCharsReadByString
+    in
+        Tokens.STRING(string, strBegin, strEnd)
+    end
+YYBEGIN INITIAL; )
+<STRING> \n   => (ErrorMsg.error yypos "illegal EOL in string literal"; continue());
+<STRING> .    => (ErrorMsg.error yypos ("illegal character " ^ yytext); continue());
+
+<INITIAL> . => (ErrorMsg.error yypos ("illegal character " ^ yytext); continue());
