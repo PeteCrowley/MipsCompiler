@@ -8,6 +8,7 @@
 "^@"
 "^_"
 "\123"
+"\256 is too big to be an ascii code"
 "\     
 \continue after tab space and return"
 "\

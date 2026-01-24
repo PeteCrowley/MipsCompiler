@@ -10,7 +10,6 @@ val commentDepth = ref 0
 val stringStartPos = ref 0
 (* Note: Characters accumulate in the front *)
 val charsReadByString = ref ([] : char list)
-val numCharsReadByString = ref 0
 
 structure CharOrd : ORD_KEY =
 struct
@@ -45,6 +44,7 @@ fun eof() =
 %% 
 %s STRING COMMENT;
 digit= [0-9];
+format = [ \r\n\t];
 printable = [ -~];
 %%
 
@@ -91,15 +91,32 @@ printable = [ -~];
     YYBEGIN STRING;
     charsReadByString := [];
     stringStartPos := yypos;
-    numCharsReadByString := 0;
     continue()
+);
+<STRING> \\{format}+\\ => (
+    continue()
+);
+<STRING> \\[0-9][0-9][0-9] => (
+    let
+        val codeString = String.substring (yytext, 1, 3)
+        val asciiCodeOption = Int.fromString codeString
+        val asciiCode = case asciiCodeOption of
+          NONE => raise Fail("Compiler bug: matched \"" ^ yytext ^ "\" as \\ddd escape sequence")
+        | SOME c => c
+        val () =
+            if asciiCode > Char.maxOrd then
+                ErrorMsg.error yypos ("illegal ASCII code " ^ yytext)
+            else
+                charsReadByString := (Char.chr asciiCode) :: (!charsReadByString)
+    in
+        continue()
+    end
 );
 <STRING> \\{printable} => (
     let
         val escapeIdentifier = String.sub (yytext, 1)
         val escapeTrueChar = CharMap.find (escapeMap, escapeIdentifier)
-	val () = numCharsReadByString := !numCharsReadByString + 2;
-	val () = case escapeTrueChar of
+        val () = case escapeTrueChar of
               NONE => (ErrorMsg.error yypos ("illegal escape sequence " ^ yytext); ())
             | SOME chr => (charsReadByString := chr :: (!charsReadByString); ())
     in
@@ -110,14 +127,13 @@ printable = [ -~];
     let
         val string = String.implode (List.rev (!charsReadByString))
         val strBegin = !stringStartPos
-        val strEnd = strBegin + !numCharsReadByString
+        val strEnd = yypos
     in
         YYBEGIN INITIAL;
         Tokens.STRING(string, strBegin, strEnd)
     end
 );
 <STRING> {printable} => (
-    numCharsReadByString := !numCharsReadByString + 1;
     charsReadByString := (String.sub (yytext, 0)) :: !charsReadByString;
     continue()
 );
