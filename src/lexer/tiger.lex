@@ -7,6 +7,32 @@ fun err(p1,p2) = ErrorMsg.error p1
 
 val commentDepth = ref 0
 
+val stringStartPos = ref 0
+(* Note: Characters accumulate in the front *)
+val charsReadByString = ref ([] : char list)
+
+structure CharOrd : ORD_KEY =
+struct
+    type ord_key = char
+    val compare = Char.compare
+end
+structure CharMap : ORD_MAP = RedBlackMapFn(CharOrd)
+
+val escapeMap =
+    let
+        val pairs = [
+            (#"\\", #"\\"),
+            (#"\"", #"\""),
+            (#"b", #"\b"),
+            (#"n", #"\n"),
+            (#"t", #"\t")
+        ]
+        fun insert ((k, v), m) = CharMap.insert (m, k, v)
+	val f = foldl insert CharMap.empty
+    in
+        f pairs
+    end
+
 structure StringOrd : ORD_KEY = 
 struct
     type ord_key = string
@@ -50,15 +76,17 @@ fun eof() =
     end
 
 %% 
-%s COMMENT;
+%s STRING COMMENT;
 digit= [0-9];
+format = [ \r\n\t];
+printable = [ -~];
 identiferCharacter = [a-zA-Z0-9_];
 
 %%
 
 
 <INITIAL> \n    => (lineNum := !lineNum+1; linePos := yypos :: !linePos; continue());
-<INITIAL> [" " | \t]   => (continue());
+<INITIAL> (" " | \t)   => (continue());
 
 <INITIAL> ":="  => (Tokens.ASSIGN(yypos, yypos+2));
 <INITIAL> "&"   => (Tokens.AND(yypos, yypos+1));
@@ -104,5 +132,58 @@ identiferCharacter = [a-zA-Z0-9_];
 <COMMENT> "*/"  => (commentDepth := !commentDepth - 1; if !commentDepth = 0 then (YYBEGIN INITIAL; continue()) else continue());
 <COMMENT> \n    => (lineNum := !lineNum+1; linePos := yypos :: !linePos; continue());
 <COMMENT> . => (continue());
+
+<INITIAL> \"    => (
+    YYBEGIN STRING;
+    charsReadByString := [];
+    stringStartPos := yypos;
+    continue()
+);
+<STRING> \\{format}+\\ => (
+    continue()
+);
+<STRING> \\[0-9][0-9][0-9] => (
+    let
+        val codeString = String.substring (yytext, 1, 3)
+        val asciiCodeOption = Int.fromString codeString
+        val asciiCode = case asciiCodeOption of
+          NONE => raise Fail("Compiler bug: matched \"" ^ yytext ^ "\" as \\ddd escape sequence")
+        | SOME c => c
+        val () =
+            if asciiCode > Char.maxOrd then
+                ErrorMsg.error yypos ("illegal ASCII code " ^ yytext)
+            else
+                charsReadByString := (Char.chr asciiCode) :: (!charsReadByString)
+    in
+        continue()
+    end
+);
+<STRING> \\{printable} => (
+    let
+        val escapeIdentifier = String.sub (yytext, 1)
+        val escapeTrueChar = CharMap.find (escapeMap, escapeIdentifier)
+        val () = case escapeTrueChar of
+              NONE => (ErrorMsg.error yypos ("illegal escape sequence " ^ yytext); ())
+            | SOME chr => (charsReadByString := chr :: (!charsReadByString); ())
+    in
+        continue()
+    end
+);
+<STRING> \" => (
+    let
+        val string = String.implode (List.rev (!charsReadByString))
+        val strBegin = !stringStartPos
+        val strEnd = yypos
+    in
+        YYBEGIN INITIAL;
+        Tokens.STRING(string, strBegin, strEnd)
+    end
+);
+<STRING> {printable} => (
+    charsReadByString := (String.sub (yytext, 0)) :: !charsReadByString;
+    continue()
+);
+<STRING> \n   => (ErrorMsg.error yypos "illegal EOL in string literal"; continue());
+<STRING> .    => (ErrorMsg.error yypos ("illegal character in string " ^ yytext); continue());
 
 <INITIAL> . => (ErrorMsg.error yypos ("illegal character " ^ yytext); continue());
