@@ -4,7 +4,7 @@ STRING(hello
 STRING(hello^<>@#)     20
 STRING(hello\)     33
 STRING(hello")     43
-STRING(hello    )     53
+STRING(hello	)     53
 STRING(hello^C)     63
 STRING(^@)     73
 STRING(^_)     78

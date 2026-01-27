@@ -54,15 +54,17 @@ struct
     , "test49"
     ]
 
-  val PROGRAM_TO_TEST = TestParse.parse
+  val PROGRAM_TO_TEST = Parse.parse
   (* Not exactly sure what this will look like should be a function that takes some input and output *)
 
   val PREFIX_DIRECTORY = "tests"
   val INPUT_DIRECTORY = PREFIX_DIRECTORY ^ "/test-programs" ^ "/lexer-tests"
   val INPUT_EXTENSION = ".tig"
-  val OUTPUT_DIRECTORY = PREFIX_DIRECTORY ^ "/" ^ "test-parse-expected-outputs"
-  val OUTPUT_EXTENSION = ".txt"
-
+  val EXPECTED_OUT_DIRECTORY =
+    PREFIX_DIRECTORY ^ "/" ^ "test-parse-expected-outputs"
+  val EXPECTED_OUT_EXTENSION = ".txt"
+  val OUTPUT_DIRECTORY = PREFIX_DIRECTORY ^ "/" ^ "test-parse-actual-outputs"
+  val OUTPUT_EXTENSION = ".out"
 
   fun runTest testName =
     let
@@ -71,45 +73,21 @@ struct
       (* val input = TextIO.inputAll inputStream *)
       (* val () = TextIO.closeIn inputStream *)
 
-      val expectedOutputStream = TextIO.openIn
-        (OUTPUT_DIRECTORY ^ "/" ^ testName ^ OUTPUT_EXTENSION)
-      val expectedOutput = "\n" ^ TextIO.inputAll expectedOutputStream
+      val expectedFileName =
+        (EXPECTED_OUT_DIRECTORY ^ "/" ^ testName ^ EXPECTED_OUT_EXTENSION)
+      val expectedOutputStream = TextIO.openIn expectedFileName
+      (* val expectedOutput = TextIO.inputAll expectedOutputStream *)
       val () = TextIO.closeIn expectedOutputStream
 
-      val programOutput = PROGRAM_TO_TEST
+      (* redirect stdout output to output directory *)
+      val outputFileName = OUTPUT_DIRECTORY ^ "/" ^ testName ^ OUTPUT_EXTENSION
+      val () = IOUtil.withOutputFile (outputFileName, PROGRAM_TO_TEST)
         (INPUT_DIRECTORY ^ "/" ^ testName ^ INPUT_EXTENSION)
 
-      fun compLines (a, b) =
-        if not (a = b) then a ^ "\n" ^ b ^ "\n" else ""
-
-      fun iterateLines ([], []) = ""
-        | iterateLines ([], restb) =
-            foldr (op^) "" restb
-        | iterateLines (resta, []) =
-            foldr (op^) "" resta
-        | iterateLines (a :: resta, b :: restb) =
-            compLines (a, b) ^ iterateLines (resta, restb)
-
-      fun compByLine (expected, actual) =
-        iterateLines
-          ( (String.fields (fn x => x = #"\n") expected)
-          , (String.fields (fn x => x = #"\n") actual)
-          )
-
-      val areEqual = expectedOutput = programOutput
-      (* val () = *)
-      (*   if not areEqual then *)
-      (*     print *)
-      (*       ("Test " ^ testName ^ " Failed: Expected:\n" ^ expectedOutput *)
-      (*        ^ "\nBut got:\n" ^ programOutput) *)
-      (*   else *)
-      (*     print ("Test " ^ testName ^ " Passed\n") *)
-
-      val () = print (compByLine (expectedOutput, programOutput))
-
     in
-      (* areEqual *)
-      compByLine (expectedOutput, programOutput) = ""
+      (* There already exists a nice tool to help us `diff` files. Let's just call it. *)
+      OS.Process.isSuccess (OS.Process.system
+        ("diff " ^ expectedFileName ^ " " ^ outputFileName))
     end
 
   fun runAllTests testList =

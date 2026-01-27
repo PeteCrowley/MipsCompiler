@@ -37,6 +37,7 @@ fun eof() =
     let 
         val pos = hd(!linePos) 
         val () = if !commentDepth > 0 then raise Fail "Unclosed Comment" else ()
+        val () = lineNum := 1 (*Reset line number manually*)
     in 
         Tokens.EOF(pos,pos) 
     end
