@@ -54,29 +54,30 @@ struct
     , "test49"
     ]
 
-  val PROGRAM_TO_TEST = Echo.echo
+  val PROGRAM_TO_TEST = TestParse.parse
   (* Not exactly sure what this will look like should be a function that takes some input and output *)
 
   val PREFIX_DIRECTORY = "tests"
   val INPUT_DIRECTORY = PREFIX_DIRECTORY ^ "/" ^ "test-programs"
   val INPUT_EXTENSION = ".tig"
-  val OUTPUT_DIRECTORY = PREFIX_DIRECTORY ^ "/" ^ "echo-expected-outputs"
+  val OUTPUT_DIRECTORY = PREFIX_DIRECTORY ^ "/" ^ "test-parse-expected-outputs"
   val OUTPUT_EXTENSION = ".txt"
 
 
   fun runTest testName =
     let
-      val inputStream = TextIO.openIn
-        (INPUT_DIRECTORY ^ "/" ^ testName ^ INPUT_EXTENSION)
-      val input = TextIO.inputAll inputStream
-      val () = TextIO.closeIn inputStream
+      (* val inputStream = TextIO.openIn *)
+      (*   (INPUT_DIRECTORY ^ "/" ^ testName ^ INPUT_EXTENSION) *)
+      (* val input = TextIO.inputAll inputStream *)
+      (* val () = TextIO.closeIn inputStream *)
 
       val expectedOutputStream = TextIO.openIn
         (OUTPUT_DIRECTORY ^ "/" ^ testName ^ OUTPUT_EXTENSION)
       val expectedOutput = TextIO.inputAll expectedOutputStream
       val () = TextIO.closeIn expectedOutputStream
 
-      val programOutput = PROGRAM_TO_TEST input
+      val programOutput = PROGRAM_TO_TEST
+        (INPUT_DIRECTORY ^ "/" ^ testName ^ INPUT_EXTENSION)
 
       val areEqual = expectedOutput = programOutput
       val () =

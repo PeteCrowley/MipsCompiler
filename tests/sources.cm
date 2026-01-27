@@ -5,3 +5,5 @@ $/smlnj-lib.cm
 
 echo.sml
 testing.sml
+../src/lexer/sources.cm
+test-parse.sml
