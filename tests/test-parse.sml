@@ -8,7 +8,7 @@ struct
       fun do_it outs =
         let
           val t = lexer ()
-          val new_outs = outs ^ t
+          val new_outs = outs ^ "\n" ^ t
         in
           if substring (t, 0, 3) = "EOF" then new_outs else do_it (new_outs)
         end
@@ -16,7 +16,6 @@ struct
       val result = do_it ""
     in
       TextIO.closeIn file;
-      result
+      result ^ "\n"
     end
-
 end
