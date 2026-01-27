@@ -33,6 +33,40 @@ val escapeMap =
         f pairs
     end
 
+structure StringOrd : ORD_KEY = 
+struct
+    type ord_key = string
+    val compare = String.compare
+end
+structure StringMap : ORD_MAP = RedBlackMapFn(StringOrd)
+
+val keywordMap = 
+    let
+        val pairs = [
+            ("type", Tokens.TYPE),
+            ("var", Tokens.VAR),
+            ("function", Tokens.FUNCTION),
+            ("break", Tokens.BREAK),
+            ("of", Tokens.OF), 
+            ("end", Tokens.END),
+            ("in", Tokens.IN),
+            ("nil", Tokens.NIL),
+            ("let", Tokens.LET),
+            ("do", Tokens.DO),
+            ("to", Tokens.TO),
+            ("for", Tokens.FOR),
+            ("while", Tokens.WHILE),
+            ("else", Tokens.ELSE),
+            ("then", Tokens.THEN),
+            ("if", Tokens.IF),
+            ("array", Tokens.ARRAY)
+        ]
+        fun insert ((k, v), m) = StringMap.insert (m, k, v)
+	    val f = foldl insert StringMap.empty
+    in
+        f pairs
+    end
+
 fun eof() = 
     let 
         val pos = hd(!linePos) 
@@ -47,6 +81,8 @@ fun eof() =
 digit= [0-9];
 format = [ \r\n\t];
 printable = [ -~];
+identiferCharacter = [a-zA-Z0-9_];
+
 %%
 
 
@@ -81,6 +117,16 @@ printable = [ -~];
     case Int.fromString yytext of
         SOME n => n
         | NONE => 0, yypos, yypos + String.size yytext));
+
+<INITIAL> [a-zA-Z]{identiferCharacter}+   => (
+    let 
+        val keywordMatch = StringMap.find (keywordMap, yytext)
+    in
+        case keywordMatch of
+            NONE => Tokens.ID(yytext, yypos, yypos + String.size yytext)
+          | SOME keyword => keyword(yypos, String.size yytext)
+    end
+);
 
 <INITIAL> "/*"  => (YYBEGIN COMMENT; commentDepth := 1; continue());
 <COMMENT> "/*"  => (commentDepth := !commentDepth + 1; continue());
