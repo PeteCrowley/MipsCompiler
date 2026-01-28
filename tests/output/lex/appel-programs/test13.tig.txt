@@ -1,4 +1,0 @@
-INT(3)   49
-GT   51
-STRING(df)     53
-EOF   57

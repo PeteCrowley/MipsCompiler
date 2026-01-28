@@ -1,5 +1,0 @@
-STRING(arstneio
-)     2
-:2.10:illegal ASCII code \999
-STRING(arstneio)     15
-EOF   30

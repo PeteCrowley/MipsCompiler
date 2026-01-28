@@ -1,3 +1,0 @@
-STRING(abc)     2
-STRING(defg1234)     8
-EOF   18

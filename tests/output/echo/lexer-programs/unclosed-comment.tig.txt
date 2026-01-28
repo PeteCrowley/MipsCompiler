@@ -1,3 +1,0 @@
-/* Unclosed /* Comment /*
-that makes it to the
-end of the file

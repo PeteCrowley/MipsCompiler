@@ -1,1 +1,0 @@
-/* This is a long /* nested /* comment */ which is */ legal */
