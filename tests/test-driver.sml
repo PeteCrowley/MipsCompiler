@@ -4,7 +4,7 @@ struct
   struct type ord_key = string val compare = String.compare end
   structure StringOrdMap: ORD_MAP = RedBlackMapFn(StringOrdKey)
 
-  fun ensure_dir path =
+  fun ensureDir path =
     let
       val path = OS.Path.mkCanonical path
 
@@ -28,6 +28,20 @@ struct
     in
       ensure path
     end
+
+  fun readFile path =
+    let
+      val stream = TextIO.openIn path
+      val contents = TextIO.inputAll stream
+      val () = TextIO.closeIn stream
+    in
+      contents
+    end
+
+  fun tryReadFile path =
+    readFile path
+    handle IO.Io _ => (TextIO.print ("Could not find " ^ path ^ "\n"); "")
+
 
   fun runTests code =
     let
@@ -57,24 +71,11 @@ struct
                 end
               and runTestOnFile (ds, file, failedTests) =
                 let
-                  fun readFile path =
-                    let
-                      val stream = TextIO.openIn path
-                      val contents = TextIO.inputAll stream
-                      val () = TextIO.closeIn stream
-                    in
-                      contents
-                    end
-                  fun tryReadFile path =
-                    readFile path
-                    handle IO.Io _ =>
-                      (TextIO.print ("Could not find " ^ path ^ "\n"); "")
-
                   (* Open input/output FDs and run the test function*)
                   val fullInputPath = "tests/input/" ^ dirname ^ "/" ^ file
                   val fullOutputDir =
                     "tests/output/" ^ test_name ^ "/" ^ dirname ^ "/"
-                  val () = ensure_dir fullOutputDir
+                  val () = ensureDir fullOutputDir
                   val fullOutputPath = fullOutputDir ^ file ^ ".txt"
 
                   (* Run the test *)
