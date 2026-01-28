@@ -18,7 +18,7 @@ struct
     end
 
 
-  fun parse (input, output) =
+  fun lex (input, output) =
     let
       fun do_it () =
         Parse.parse input
@@ -32,9 +32,9 @@ struct
       , test_dirs = ["appel-programs", "lexer-programs"]
       , test_fn = echo
       }
-    , { test_name = "parse"
+    , { test_name = "lex"
       , test_dirs = ["appel-programs", "lexer-programs"]
-      , test_fn = parse
+      , test_fn = lex
       }
     ]
 end
