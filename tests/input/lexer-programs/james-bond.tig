@@ -1,0 +1,5 @@
+/* int edge cases */
+007
+-1
+-0
+9999999999 /* 32-bit overflow? */

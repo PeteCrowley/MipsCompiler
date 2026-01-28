@@ -1,0 +1,8 @@
+INT(2)   2
+INT(5)   5
+STRING(8)     8
+STRING(13)     13
+INT(21)   21
+STRING(thirty-four)     34
+INT(55)   55
+EOF   57
