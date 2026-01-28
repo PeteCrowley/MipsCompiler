@@ -1,13 +1,23 @@
 # Tests
+
 This directory contains tests for our compiler. Many are downloaded from Andrew Appel's website linked [here](https://www.cs.princeton.edu/~appel/modern/testcases/).
 
-### Testing Setup
-Expected tests results should be placed in the appropriate directory for that layer of the compiler. For example, the expected output of my example `echo` program is defined in `echo-expected-outputs`. Then, configure a few variables in the `testing.sml` file. 
+## Running Existing Tests
 
-1. Set the `INPUT_DIRECTORY` and `INPUT_EXTENSION` variables. These (I think) should often just be `test-programs` and `.tig` but there may be some cases we don't want to test all layers of our pipleine and instead want to start at some intermediate step (say an AST). 
-2. Set the `OUTPUT_DIRECTORY` and `OUTPUT_EXTENSION` variables based on where you've placed the expected outputs. 
-3. Set the `PROGRAM_TO_TEST` variable with the program you'd like to test. Right now, the testing framework will just call this function with a single string input but this can be easily extended in the future.
-4. If you only want to run certain tests, comment out unwanted ones in the `allTests` list.
+Existing tests can be found in `test-manifest.sml`. Run them with the function `Tests.runTests <key>`, declared in `test-driver.sml`.
 
-### Running Tests
-To run tests, you can use the `Test` structure defined in the `testing.sml` file. Simply make the `sources.cm` file as normal and then call `Tests.runAllTests Tests.allTests` to run all tests or `Tests.runTest <testName>` to run a singular test.
+## Test Results
+
+The results of the test on each file will be stored in `output/<key>`. If the output file exactly matches the file found in `expected/<key>`, the test will pass. Otherwise, it will fail. To see exactly what's different, use the `diff` terminal command on the files.
+
+## Adding New Tests
+
+Each test is listed as a record (find the declaration in `test-manifest.sig`). The list of tests known to the test engine is found in `TestManifest.allTests`, which is a list of test records located in `test-manifest.sml`. New tests should NOT be placed in `test-driver.sml`. Instead, opt to place the testing record or function in `test-manifest.sml`, or if sufficiently long in its own file.
+
+The record has three entries:
+
+- `test_name`: the name of the test. This is the argument passed to `Tests.runTests`.
+- `test_dirs`: the group of input files to run this test on. This is a list of input directories. For example, `["appel-programs"]` will tell the test to run on every file in `input/appel-programs`.
+- `test_function`: this is testing function. A test function takes two arguements: the path to the input file, and the path to the output file. The testing function is expected to read from the input file and output all of its results to the output file.
+
+An example `echo` test is provided.
