@@ -3,8 +3,9 @@ Group is
 $/basis.cm
 $/smlnj-lib.cm
 
-echo.sml
-testing.sig
-testing.sml
+test-manifest.sig
+test-manifest.sml
+test-driver.sig
+test-driver.sml
+
 ../src/lexer/sources.cm
-test-parse.sml
