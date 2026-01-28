@@ -94,6 +94,18 @@ struct
                     if testSucceeded then "PASSED" else "FAILED"
                   val () = print
                     ("  on " ^ fullInputPath ^ ": " ^ testStatusStr ^ "\n")
+
+                  val diffDir = "tests/diffs/" ^ test_name ^ "/" ^ dirname ^ "/"
+                  val () = ensureDir diffDir
+                  val diff_status =
+                    if not testSucceeded then
+                      OS.Process.system
+                        ("diff " ^ fullExpectedPath ^ " " ^ fullOutputPath
+                         ^ "> " ^ diffDir ^ file ^ ".diff")
+                    else
+                      (* should be using OS.FileSys.remove but whatever *)
+                      OS.Process.system ("rm " ^ diffDir ^ file ^ ".diff")
+
                   val failedTests =
                     if testSucceeded then failedTests
                     else (test_name, fullInputPath) :: failedTests
