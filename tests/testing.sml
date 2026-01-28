@@ -1,104 +1,85 @@
-structure Tests =
+structure Testing :> TESTING =
 struct
+  fun echo x = x
+
   val allTests =
-    [ "merge"
-    , "queens"
-    , "test01"
-    , "test02"
-    , "test03"
-    , "test04"
-    , "test05"
-    , "test06"
-    , "test07"
-    , "test08"
-    , "test09"
-    , "test10"
-    , "test11"
-    , "test12"
-    , "test13"
-    , "test14"
-    , "test15"
-    , "test16"
-    , "test17"
-    , "test18"
-    , "test19"
-    , "test20"
-    , "test21"
-    , "test22"
-    , "test23"
-    , "test24"
-    , "test25"
-    , "test26"
-    , "test27"
-    , "test28"
-    , "test29"
-    , "test30"
-    , "test31"
-    , "test32"
-    , "test33"
-    , "test34"
-    , "test35"
-    , "test36"
-    , "test37"
-    , "test38"
-    , "test39"
-    , "test40"
-    , "test41"
-    , "test42"
-    , "test43"
-    , "test44"
-    , "test45"
-    , "test46"
-    , "test47"
-    , "test48"
-    , "test49"
-    ]
+    [{ test_name = "echo"
+     , test_dirs = ["appel-programs", "lexer-programs"]
+     , test_fn = echo
+     }]
 
-  val PROGRAM_TO_TEST = Parse.parse
-  (* Not exactly sure what this will look like should be a function that takes some input and output *)
+  structure StringOrdKey: ORD_KEY =
+  struct type ord_key = string val compare = String.compare end
+  structure StringOrdMap: ORD_MAP = RedBlackMapFn(StringOrdKey)
 
-  val PREFIX_DIRECTORY = "tests"
-  val INPUT_DIRECTORY = PREFIX_DIRECTORY ^ "/test-programs" ^ "/lexer-tests"
-  val INPUT_EXTENSION = ".tig"
-  val EXPECTED_OUT_DIRECTORY =
-    PREFIX_DIRECTORY ^ "/" ^ "test-parse-expected-outputs"
-  val EXPECTED_OUT_EXTENSION = ".txt"
-  val OUTPUT_DIRECTORY = PREFIX_DIRECTORY ^ "/" ^ "test-parse-actual-outputs"
-  val OUTPUT_EXTENSION = ".out"
-
-  fun runTest testName =
+  type test_entry =
+    {test_name: string, test_dirs: string list, test_fn: string -> string}
+  fun runTests code =
     let
-      (* val inputStream = TextIO.openIn *)
-      (*   (INPUT_DIRECTORY ^ "/" ^ testName ^ INPUT_EXTENSION) *)
-      (* val input = TextIO.inputAll inputStream *)
-      (* val () = TextIO.closeIn inputStream *)
-
-      val expectedFileName =
-        (EXPECTED_OUT_DIRECTORY ^ "/" ^ testName ^ EXPECTED_OUT_EXTENSION)
-      val expectedOutputStream = TextIO.openIn expectedFileName
-      (* val expectedOutput = TextIO.inputAll expectedOutputStream *)
-      val () = TextIO.closeIn expectedOutputStream
-
-      (* redirect stdout output to output directory *)
-      val outputFileName = OUTPUT_DIRECTORY ^ "/" ^ testName ^ OUTPUT_EXTENSION
-      val () = IOUtil.withOutputFile (outputFileName, PROGRAM_TO_TEST)
-        (INPUT_DIRECTORY ^ "/" ^ testName ^ INPUT_EXTENSION)
-
-    in
-      (* There already exists a nice tool to help us `diff` files. Let's just call it. *)
-      OS.Process.isSuccess (OS.Process.system
-        ("diff " ^ expectedFileName ^ " " ^ outputFileName))
-    end
-
-  fun runAllTests testList =
-    let
-      val numPassed =
-        foldl (fn (test, acc) => if runTest test then acc + 1 else acc) 0
-          testList
-      val numTests = List.length testList
-      val () = print
-        ("**** Tests Finished Running ***\nResults: " ^ Int.toString numPassed
-         ^ "/" ^ Int.toString numTests ^ " tests passed")
+      fun insert ({test_name, test_dirs, test_fn}, map) =
+        StringOrdMap.insert
+          ( map
+          , test_name
+          , {test_name = test_name, test_dirs = test_dirs, test_fn = test_fn}
+          )
+      val allTestsMap: test_entry StringOrdMap.map =
+        List.foldl insert StringOrdMap.empty allTests
+      val testToRun = StringOrdMap.find (allTestsMap, code)
+      (* Returns a tuple of (test-name, full input path of failed test) *)
+      fun runTest {test_name, test_dirs, test_fn} =
+        let
+          val () = print ("Test " ^ test_name ^ ":\n")
+          fun runAllTestsInDir dirname =
+            let
+              val dirstream = OS.FileSys.openDir dirname
+              fun runAllRemainingTestsInDir (ds, failedTests) =
+                let
+                  val maybeNextFile = OS.FileSys.readDir ds
+                in
+                  case maybeNextFile of
+                    NONE => failedTests
+                  | SOME file => runTestOnFile (ds, file, failedTests)
+                end
+              and runTestOnFile (ds, file, failedTests) =
+                let
+                  val fullInputPath = "tests/input/" ^ dirname ^ "/" ^ file
+                  val inputStream = TextIO.openIn fullInputPath
+                  val input = TextIO.inputAll inputStream
+                  val output = test_fn input
+                  val thisTestSucceeded = input = output
+                  val testStatusStr =
+                    if thisTestSucceeded then "PASSED" else "FAILED"
+                  val () = print
+                    ("  on " ^ fullInputPath ^ ": " ^ testStatusStr ^ "\n")
+                  val failedTests =
+                    if thisTestSucceeded then failedTests
+                    else (test_name, fullInputPath) :: failedTests
+                in
+                  runAllRemainingTestsInDir (ds, failedTests)
+                end
+              val failedTests = runAllRemainingTestsInDir (dirstream, [])
+            in
+              failedTests
+            end
+          val testResultsForEachDir = List.map runAllTestsInDir test_dirs
+          val failedTests = List.concat testResultsForEachDir
+        in
+          failedTests
+        end
+      fun codeDoesntMatchTestName () =
+        let val () = print ("No test named " ^ code ^ "\n")
+        in []
+        end
+      val results =
+        case testToRun of
+          NONE => codeDoesntMatchTestName ()
+        | SOME record => runTest record
+      val () =
+        if results = [] then print ("ALL TESTS PASSED\n")
+        else print "SOME TESTS FAILED\nFailed Tests:\n"
+      fun printFailure (test_name, path) =
+        print ("  " ^ test_name ^ " on " ^ path ^ "\n")
+      val _ = List.map printFailure results
     in
       ()
     end
