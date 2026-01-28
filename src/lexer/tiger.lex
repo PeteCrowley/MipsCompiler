@@ -81,7 +81,7 @@ fun eof() =
 digit= [0-9];
 format = [ \r\n\t];
 printable = [ -~];
-identiferCharacter = [a-zA-Z0-9_];
+identiferCharacter = [0-9A-Z_a-z];
 
 %%
 
@@ -118,7 +118,7 @@ identiferCharacter = [a-zA-Z0-9_];
         SOME n => n
         | NONE => 0, yypos, yypos + String.size yytext));
 
-<INITIAL> [a-zA-Z]{identiferCharacter}+   => (
+<INITIAL> [A-Za-z]{identiferCharacter}*   => (
     let 
         val keywordMatch = StringMap.find (keywordMap, yytext)
     in
