@@ -1,0 +1,19 @@
+STRING(hello)     2
+STRING(hello
+)     10
+STRING(hello^<>@#)     20
+STRING(hello\)     33
+STRING(hello")     43
+STRING(hello	)     53
+STRING(hello^C)     63
+STRING(^@)     73
+STRING(^_)     78
+STRING({)     83
+:11.2:illegal ASCII code \256
+STRING( is too big to be an ascii code)     90
+STRING(continue after tab space and return)     128
+:13.3:illegal EOL in string literal
+STRING(\doesn't continue)     174
+:14.2:illegal escape sequence \i
+STRING(llegal)     195
+EOF   205

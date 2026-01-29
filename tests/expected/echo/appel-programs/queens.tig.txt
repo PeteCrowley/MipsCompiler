@@ -1,6 +1,6 @@
 /* A program to solve the 8-queens problem */
 
-this isn't supposed to be here
+/* this comment is not in the original program */
 
 let
     var N := 8
@@ -33,4 +33,3 @@ let
 )
  in try(0)
 end
-	
