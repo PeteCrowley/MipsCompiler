@@ -10,6 +10,7 @@ val commentDepth = ref 0
 val stringStartPos = ref 0
 (* Note: Characters accumulate in the front *)
 val charsReadByString = ref ([] : char list)
+val inStringState = ref false
 
 structure CharOrd : ORD_KEY =
 struct
@@ -70,8 +71,10 @@ val keywordMap =
 fun eof() = 
     let 
         val pos = hd(!linePos) 
-        val () = if !commentDepth > 0 then raise Fail "Unclosed Comment" else ()
         val () = lineNum := 1 (*Reset line number manually*)
+        val () = if !commentDepth > 0 then (commentDepth := 0; raise Fail "Unclosed Comment") else ()
+        val () = if !inStringState then (inStringState := false; raise Fail "Unclosed String") else ()
+        
     in 
         Tokens.EOF(pos,pos) 
     end
@@ -81,7 +84,7 @@ fun eof() =
 digit= [0-9];
 format = [ \r\n\t];
 printable = [ -~];
-identiferCharacter = [a-zA-Z0-9_];
+identifierCharacter = [a-zA-Z0-9_];
 
 %%
 
@@ -118,7 +121,7 @@ identiferCharacter = [a-zA-Z0-9_];
         SOME n => n
         | NONE => 0, yypos, yypos + String.size yytext));
 
-<INITIAL> [a-zA-Z]{identiferCharacter}+   => (
+<INITIAL> [a-zA-Z]{identifierCharacter}*   => (
     let 
         val keywordMatch = StringMap.find (keywordMap, yytext)
     in
@@ -136,6 +139,7 @@ identiferCharacter = [a-zA-Z0-9_];
 
 <INITIAL> \"    => (
     YYBEGIN STRING;
+    inStringState := true;
     charsReadByString := [];
     stringStartPos := yypos;
     continue()
@@ -176,6 +180,7 @@ identiferCharacter = [a-zA-Z0-9_];
         val strBegin = !stringStartPos
         val strEnd = yypos
     in
+        inStringState := false;
         YYBEGIN INITIAL;
         Tokens.STRING(string, strBegin, strEnd)
     end
