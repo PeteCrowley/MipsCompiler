@@ -21,7 +21,7 @@ struct
   fun lex (input, output) =
     let
       fun do_it () =
-        Parse.parse input
+        Lex.lex input
         handle Fail msg => print ("Program raised Fail: " ^ msg)
     in
       IOUtil.withOutputFile (output, do_it) ()

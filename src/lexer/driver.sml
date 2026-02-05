@@ -1,6 +1,6 @@
-structure Parse =
+structure Lex =
 struct
-  fun parse filename =
+  fun lex filename =
     let
       val file = TextIO.openIn filename
       fun get _ = TextIO.input file
