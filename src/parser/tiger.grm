@@ -13,7 +13,7 @@
   | UMINUS
 
 %nonterm program | expression | expression_list | expression_list_tail | comma_expr_list | comma_expr_list_tail
-        | literal_expr | arithmetic_expr | comparison_expr | boolean_expr
+        | literal_expr | uminus_expr | arithmetic_expr | comparison_expr | boolean_expr
         | record_creation | record_expr_list | record_expr_list_tail
         | decs | dec | lvalue | lvalue_tail
         | tydec | ty | tyfields | tyfields_tail 
@@ -40,21 +40,16 @@
 
 %%
 
-(* This is a skeleton grammar file, meant to illustrate what kind of
- * declarations are necessary above the %% mark.  Students are expected
- *  to replace the two dummy productions below with an actual grammar. 
- *)
-
 program : expression ()
 
 decs : dec decs ()
         | (* EMPTY *) ()
 
-(* Type Declarations *)
 dec: tydec ()
         | vardec ()
         | fundec ()
 
+(* Type Declarations *)
 tydec: TYPE ID EQ ty ()
 
 ty: ID ()
@@ -83,11 +78,15 @@ fundec: FUNCTION ID LPAREN tyfields RPAREN EQ expression ()
 
 
 (* Expressions *)
-expression: lvalue ()
-            | LPAREN RPAREN ()  (* Empty expressions *)
-            | MINUS expression  ()  (* Only allowed when expression is an integer though *)
-            | ID LPAREN comma_expr_list RPAREN ()  (* Function call with 0 or more parameters *)
-            | boolean_expr ()
+
+(* Expressions are divided into several nonterminal symbols to respect
+ * precedence of certain operations. Each nonterminal accepts a shrinking list
+ * of accepted operators (without using parentheses)
+ *)
+
+
+(* A single expression *)
+expression: boolean_expr ()
             | record_creation ()
             | ID LBRACK expression RBRACK OF expression () (* array creation *)
             | lvalue ASSIGN expression () (* Assignment *)
@@ -98,45 +97,59 @@ expression: lvalue ()
             | LET decs IN expression_list END ()
 
 
+(* A list of expressions is technically an expression, whose value is the last
+ * expression in the list *)
 expression_list: expression expression_list_tail ()
 
 expression_list_tail: SEMICOLON expression_list ()
                   | (* EMPTY *) ()
 
+(* Function arguments *)
 comma_expr_list: expression comma_expr_list_tail ()
                       | (* EMPTY *) ()
 
 comma_expr_list_tail: (* EMPTY *) ()
                       | COMMA expression comma_expr_list_tail ()
 
-(* Literal expressions (direct nonterminal expressions) have highest precedence *)
-literal_expr: LPAREN expression_list RPAREN ()
-                  | NIL ()
-                  | INT ()
-                  | STRING ()
-                  | BREAK ()
+(* Only highest-precedence expressions: literals, values, function calls *)
+literal_expr:
+              (* This is the "wraparound rule". Parentheses reset associativity, allowing all
+               * expressions *)
+              LPAREN expression_list RPAREN () 
 
-(* Arithmetic expressions have highest precedence *)
-arithmetic_expr: literal_expr ()
-                  | arithmetic_expr PLUS arithmetic_expr ()
-                  | arithmetic_expr MINUS arithmetic_expr ()
-                  | arithmetic_expr TIMES arithmetic_expr ()
-                  | arithmetic_expr DIVIDE arithmetic_expr ()
+              | lvalue ()
+              | ID LPAREN comma_expr_list RPAREN ()  (* Function call with 0 or more parameters *)
+              | NIL ()
+              | INT ()
+              | STRING ()
+              | BREAK ()
 
-(* Comparison expressions have lower precedence than arithmetic *)
+(* Unary minus is the highest-precedent operator *)
+uminus_expr: literal_expr ()
+              | MINUS literal_expr ()
+
+(* Arithmetic expressions *)
+arithmetic_expr: uminus_expr ()
+              | arithmetic_expr PLUS arithmetic_expr ()
+              | arithmetic_expr MINUS arithmetic_expr ()
+              | arithmetic_expr TIMES arithmetic_expr ()
+              | arithmetic_expr DIVIDE arithmetic_expr ()
+
+(* Expressions with comparison operations *)
 comparison_expr: arithmetic_expr ()
-                  | arithmetic_expr EQ arithmetic_expr ()
-                  | arithmetic_expr NEQ arithmetic_expr ()
-                  | arithmetic_expr GT arithmetic_expr ()
-                  | arithmetic_expr LT arithmetic_expr ()
-                  | arithmetic_expr GE arithmetic_expr ()
-                  | arithmetic_expr LE arithmetic_expr ()
+              | arithmetic_expr EQ arithmetic_expr ()
+              | arithmetic_expr NEQ arithmetic_expr ()
+              | arithmetic_expr GT arithmetic_expr ()
+              | arithmetic_expr LT arithmetic_expr ()
+              | arithmetic_expr GE arithmetic_expr ()
+              | arithmetic_expr LE arithmetic_expr ()
 
-(* Boolean expressions have lower precedence than comparison *)
+(* Expressions with boolean operators *)
 boolean_expr: comparison_expr ()
               | boolean_expr AND boolean_expr ()
               | boolean_expr OR boolean_expr ()
 
+(* Records *)
 record_creation: ID LBRACE record_expr_list RBRACE ()
 
 record_expr_list: ID EQ expression record_expr_list_tail ()
