@@ -12,7 +12,7 @@
   | FUNCTION | VAR | TYPE
   | UMINUS
 
-%nonterm program | expression | expression_list | comma_expr_list | comma_expr_list_tail
+%nonterm program | expression | expression_list | expression_list_tail | comma_expr_list | comma_expr_list_tail
         | literal_expr | arithmetic_expr | comparison_expr | boolean_expr
         | record_creation | record_expr_list | record_expr_list_tail
         | decs | dec | lvalue | lvalue_tail
@@ -36,7 +36,7 @@
 %left TIMES DIVIDE
 %left PLUS MINUS
 %left AND OR
-%nonassoc ELSE THEN
+
 
 %%
 
@@ -48,18 +48,18 @@
 program : expression ()
 
 decs : dec decs ()
-    | (* EMPTY *) ()
+        | (* EMPTY *) ()
 
 (* Type Declarations *)
 dec: tydec ()
-    | vardec ()
-    | fundec ()
+        | vardec ()
+        | fundec ()
 
 tydec: TYPE ID EQ ty ()
 
 ty: ID ()
-    | LBRACE tyfields RBRACE ()
-    | ARRAY OF ID ()
+        | LBRACE tyfields RBRACE ()
+        | ARRAY OF ID ()
   
 tyfields: ID COLON ID tyfields_tail ()
          | (* EMPTY *) ()
@@ -84,21 +84,23 @@ fundec: FUNCTION ID LPAREN tyfields RPAREN EQ expression ()
 
 (* Expressions *)
 expression: lvalue ()
-            | LPAREN expression_list RPAREN ()    (* This case also handles no value via an empty expression list *)
+            | LPAREN RPAREN ()  (* Empty expressions *)
             | MINUS expression  ()  (* Only allowed when expression is an integer though *)
             | ID LPAREN comma_expr_list RPAREN ()  (* Function call with 0 or more parameters *)
             | boolean_expr ()
             | record_creation ()
             | ID LBRACK expression RBRACK OF expression () (* array creation *)
             | lvalue ASSIGN expression () (* Assignment *)
-            | IF expression THEN expression ()
             | IF expression THEN expression ELSE expression ()
+            | IF expression THEN expression ()
             | WHILE expression DO expression ()
             | FOR ID ASSIGN expression TO expression DO expression ()
             | LET decs IN expression_list END ()
 
 
-expression_list: expression SEMICOLON expression_list ()
+expression_list: expression expression_list_tail ()
+
+expression_list_tail: SEMICOLON expression_list ()
                   | (* EMPTY *) ()
 
 comma_expr_list: expression comma_expr_list_tail ()
@@ -108,7 +110,7 @@ comma_expr_list_tail: (* EMPTY *) ()
                       | COMMA expression comma_expr_list_tail ()
 
 (* Literal expressions (direct nonterminal expressions) have highest precedence *)
-literal_expr: LPAREN expression RPAREN ()
+literal_expr: LPAREN expression_list RPAREN ()
                   | NIL ()
                   | INT ()
                   | STRING ()
@@ -135,7 +137,7 @@ boolean_expr: comparison_expr ()
               | boolean_expr AND boolean_expr ()
               | boolean_expr OR boolean_expr ()
 
-record_creation: LBRACE record_expr_list RBRACE ()
+record_creation: ID LBRACE record_expr_list RBRACE ()
 
 record_expr_list: ID EQ expression record_expr_list_tail ()
                   | (* EMPTY *) ()
