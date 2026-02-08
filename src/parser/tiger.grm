@@ -13,10 +13,10 @@
   | UMINUS
 
 %nonterm program | expression | expression_list | comma_expr_list | comma_expr_list_tail
-        | arithmetic_expr | comparison_expr | boolean_expr
+        | literal_expr | arithmetic_expr | comparison_expr | boolean_expr
         | record_creation | record_expr_list | record_expr_list_tail
-        | decs | dec | lvalue
-        | tydec | type_id | ty | tyfields | tyfields_tail 
+        | decs | dec | lvalue | lvalue_tail
+        | tydec | ty | tyfields | tyfields_tail 
         | vardec | fundec | anything
 
 %pos int
@@ -35,9 +35,8 @@
 %left UMINUS
 %left TIMES DIVIDE
 %left PLUS MINUS
-%nonassoc EQ NEQ LT GT LE GE
 %left AND OR
-%nonassoc ASSIGN
+%nonassoc ELSE THEN
 
 %%
 
@@ -56,54 +55,47 @@ dec: tydec ()
     | vardec ()
     | fundec ()
 
-type_id: ID ()
+tydec: TYPE ID EQ ty ()
 
-tydec: TYPE type_id EQ ty ()
-
-ty: type_id ()
+ty: ID ()
     | LBRACE tyfields RBRACE ()
-    | ARRAY OF type_id ()
+    | ARRAY OF ID ()
   
-tyfields: ID COLON type_id tyfields_tail ()
+tyfields: ID COLON ID tyfields_tail ()
          | (* EMPTY *) ()
 
 tyfields_tail: (* EMPTY *) ()
-              | COMMA ID COLON type_id tyfields_tail ()
+              | COMMA ID COLON ID tyfields_tail ()
 
 (* Variable Declarations *)
 vardec: VAR ID ASSIGN expression ()
-        | VAR ID COLON type_id ASSIGN expression ()
+        | VAR ID COLON ID ASSIGN expression ()
 
-lvalue: ID ()
-        | lvalue DOT ID ()
-        | lvalue LBRACK expression RBRACK ()
+lvalue: ID lvalue_tail ()
+
+lvalue_tail: (* EMPTY *) ()
+        | DOT lvalue ()
+        | LBRACK expression RBRACK lvalue_tail ()
 
 (* Function Declarations *)
 fundec: FUNCTION ID LPAREN tyfields RPAREN EQ expression ()
-        | FUNCTION ID LPAREN tyfields RPAREN COLON type_id EQ expression ()
+        | FUNCTION ID LPAREN tyfields RPAREN COLON ID EQ expression ()
 
 
 (* Expressions *)
 expression: lvalue ()
-            | NIL ()
             | LPAREN expression_list RPAREN ()    (* This case also handles no value via an empty expression list *)
-            | INT ()
-            | STRING ()
             | MINUS expression  ()  (* Only allowed when expression is an integer though *)
             | ID LPAREN comma_expr_list RPAREN ()  (* Function call with 0 or more parameters *)
-            | arithmetic_expr ()
-            | comparison_expr ()
             | boolean_expr ()
             | record_creation ()
-            | type_id LBRACK expression RBRACK OF expression () (* array creation *)
+            | ID LBRACK expression RBRACK OF expression () (* array creation *)
             | lvalue ASSIGN expression () (* Assignment *)
             | IF expression THEN expression ()
             | IF expression THEN expression ELSE expression ()
             | WHILE expression DO expression ()
             | FOR ID ASSIGN expression TO expression DO expression ()
-            | BREAK ()
             | LET decs IN expression_list END ()
-            | LPAREN expression RPAREN ()
 
 
 expression_list: expression SEMICOLON expression_list ()
@@ -115,20 +107,33 @@ comma_expr_list: expression comma_expr_list_tail ()
 comma_expr_list_tail: (* EMPTY *) ()
                       | COMMA expression comma_expr_list_tail ()
 
-arithmetic_expr: expression PLUS expression ()
-                  | expression MINUS expression ()
-                  | expression TIMES expression ()
-                  | expression DIVIDE expression ()
+(* Literal expressions (direct nonterminal expressions) have highest precedence *)
+literal_expr: LPAREN expression RPAREN ()
+                  | NIL ()
+                  | INT ()
+                  | STRING ()
+                  | BREAK ()
 
-comparison_expr: expression EQ expression ()
-                  | expression NEQ expression ()
-                  | expression GT expression ()
-                  | expression LT expression ()
-                  | expression GE expression ()
-                  | expression LE expression ()
+(* Arithmetic expressions have highest precedence *)
+arithmetic_expr: literal_expr ()
+                  | arithmetic_expr PLUS arithmetic_expr ()
+                  | arithmetic_expr MINUS arithmetic_expr ()
+                  | arithmetic_expr TIMES arithmetic_expr ()
+                  | arithmetic_expr DIVIDE arithmetic_expr ()
 
-boolean_expr: expression AND expression ()
-              | expression OR expression ()
+(* Comparison expressions have lower precedence than arithmetic *)
+comparison_expr: arithmetic_expr ()
+                  | arithmetic_expr EQ arithmetic_expr ()
+                  | arithmetic_expr NEQ arithmetic_expr ()
+                  | arithmetic_expr GT arithmetic_expr ()
+                  | arithmetic_expr LT arithmetic_expr ()
+                  | arithmetic_expr GE arithmetic_expr ()
+                  | arithmetic_expr LE arithmetic_expr ()
+
+(* Boolean expressions have lower precedence than comparison *)
+boolean_expr: comparison_expr ()
+              | boolean_expr AND boolean_expr ()
+              | boolean_expr OR boolean_expr ()
 
 record_creation: LBRACE record_expr_list RBRACE ()
 
