@@ -10,8 +10,14 @@
   | ARRAY | IF | THEN | ELSE | WHILE | FOR | TO | DO | LET | IN | END | OF 
   | BREAK | NIL
   | FUNCTION | VAR | TYPE
+  | UMINUS
 
-%nonterm  exp | program
+%nonterm program | expression | expression_list | comma_expr_list | comma_expr_list_tail
+        | arithmetic_expr | comparison_expr | boolean_expr
+        | record_creation | record_expr_list | record_expr_list_tail
+        | decs | dec | lvalue
+        | tydec | type_id | ty | tyfields | tyfields_tail 
+        | vardec | fundec | anything
 
 %pos int
 %verbose
@@ -26,9 +32,12 @@
 
 %prefer THEN ELSE LPAREN
 
-%value ID ("bogus")
-%value INT (1)
-%value STRING ("")
+%left UMINUS
+%left TIMES DIVIDE
+%left PLUS MINUS
+%nonassoc EQ NEQ LT GT LE GE
+%left AND OR
+%nonassoc ASSIGN
 
 %%
 
@@ -37,5 +46,94 @@
  *  to replace the two dummy productions below with an actual grammar. 
  *)
 
-program	: exp ()
-exp	: ()
+program : expression ()
+
+decs : dec decs ()
+    | (* EMPTY *) ()
+
+(* Type Declarations *)
+dec: tydec ()
+    | vardec ()
+    | fundec ()
+
+type_id: ID ()
+
+tydec: TYPE type_id EQ ty ()
+
+ty: type_id ()
+    | LBRACE tyfields RBRACE ()
+    | ARRAY OF type_id ()
+  
+tyfields: ID COLON type_id tyfields_tail ()
+         | (* EMPTY *) ()
+
+tyfields_tail: (* EMPTY *) ()
+              | COMMA ID COLON type_id tyfields_tail ()
+
+(* Variable Declarations *)
+vardec: VAR ID ASSIGN expression ()
+        | VAR ID COLON type_id ASSIGN expression ()
+
+lvalue: ID ()
+        | lvalue DOT ID ()
+        | lvalue LBRACK expression RBRACK ()
+
+(* Function Declarations *)
+fundec: FUNCTION ID LPAREN tyfields RPAREN EQ expression ()
+        | FUNCTION ID LPAREN tyfields RPAREN COLON type_id EQ expression ()
+
+
+(* Expressions *)
+expression: lvalue ()
+            | NIL ()
+            | LPAREN expression_list RPAREN ()    (* This case also handles no value via an empty expression list *)
+            | INT ()
+            | STRING ()
+            | MINUS expression  ()  (* Only allowed when expression is an integer though *)
+            | ID LPAREN comma_expr_list RPAREN ()  (* Function call with 0 or more parameters *)
+            | arithmetic_expr ()
+            | comparison_expr ()
+            | boolean_expr ()
+            | record_creation ()
+            | type_id LBRACK expression RBRACK OF expression () (* array creation *)
+            | lvalue ASSIGN expression () (* Assignment *)
+            | IF expression THEN expression ()
+            | IF expression THEN expression ELSE expression ()
+            | WHILE expression DO expression ()
+            | FOR ID ASSIGN expression TO expression DO expression ()
+            | BREAK ()
+            | LET decs IN expression_list END ()
+            | LPAREN expression RPAREN ()
+
+
+expression_list: expression SEMICOLON expression_list ()
+                  | (* EMPTY *) ()
+
+comma_expr_list: expression comma_expr_list_tail ()
+                      | (* EMPTY *) ()
+
+comma_expr_list_tail: (* EMPTY *) ()
+                      | COMMA expression comma_expr_list_tail ()
+
+arithmetic_expr: expression PLUS expression ()
+                  | expression MINUS expression ()
+                  | expression TIMES expression ()
+                  | expression DIVIDE expression ()
+
+comparison_expr: expression EQ expression ()
+                  | expression NEQ expression ()
+                  | expression GT expression ()
+                  | expression LT expression ()
+                  | expression GE expression ()
+                  | expression LE expression ()
+
+boolean_expr: expression AND expression ()
+              | expression OR expression ()
+
+record_creation: LBRACE record_expr_list RBRACE ()
+
+record_expr_list: ID EQ expression record_expr_list_tail ()
+                  | (* EMPTY *) ()
+
+record_expr_list_tail: (* EMPTY *) ()
+                        | COMMA ID EQ expression record_expr_list_tail ()
