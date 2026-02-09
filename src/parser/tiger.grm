@@ -12,12 +12,18 @@
   | FUNCTION | VAR | TYPE
   | IF_THEN
 
-%nonterm program | expression | expression_list | expression_list_tail | comma_expr_list | comma_expr_list_tail
-        | literal_expr | uminus_expr | arithmetic_expr | comparison_expr | boolean_expr | let_expr
-        | record_creation | record_expr_list | record_expr_list_tail
-        | decs | dec | lvalue | lvalue_tail
-        | tydec | ty | tyfields | tyfields_tail 
-        | vardec | fundec | anything
+%nonterm
+  program of Absyn.exp
+  | expression of Absyn.exp
+  | expression_list of (Absyn.exp * Absyn.pos) list | expression_list_tail of (Absyn.exp * Absyn.pos) list 
+  | comma_expr_list of Absyn.exp list  | comma_expr_list_tail of Absyn.exp list
+  | literal_expr of Absyn.exp  | uminus_expr of Absyn.exp  | arithmetic_expr of Absyn.exp  | comparison_expr of Absyn.exp  | boolean_expr of Absyn.exp  | let_expr of Absyn.exp 
+  | record_creation of Absyn.exp | record_expr_list of (Absyn.symbol * Absyn.exp * Absyn.pos) list | record_expr_list_tail of (Absyn.symbol * Absyn.exp * Absyn.pos) list
+  | decs of Absyn.dec list | dec of Absyn.dec
+  | lvalue of Absyn.var | lvalue_tail of Absyn.var -> Absyn.var
+  | tydec of Absyn.dec | ty of Absyn.ty | tyfields of Absyn.field list |
+  tyfields_tail of Absyn.field list
+  | vardec of Absyn.dec | fundec of Absyn.dec
 
 %pos int
 %verbose
@@ -40,41 +46,83 @@
 
 %%
 
-program : expression ()
+program : expression (expression)
 
-decs : dec decs ()
-        | (* EMPTY *) ()
-
-dec: tydec ()
-        | vardec ()
-        | fundec ()
+decs : dec decs (dec :: decs)
+        | (* EMPTY *) ([])
+dec: tydec (tydec)
+        | vardec (vardec)
+        | fundec (fundec)
 
 (* Type Declarations *)
-tydec: TYPE ID EQ ty ()
+(* TODO: Handle mutual recursion *)
+tydec: TYPE ID EQ ty (Absyn.TypeDec [{
+    name = Symbol.symbol ID,
+    ty = ty,
+    pos = TYPEleft
+  }])
 
-ty: ID ()
-        | LBRACE tyfields RBRACE ()
-        | ARRAY OF ID ()
+ty: ID (Absyn.NameTy (Symbol.symbol ID, IDleft))
+        | LBRACE tyfields RBRACE (Absyn.RecordTy tyfields)
+        | ARRAY OF ID (Absyn.ArrayTy (Symbol.symbol ID, ARRAYleft))
   
-tyfields: ID COLON ID tyfields_tail ()
-         | (* EMPTY *) ()
+tyfields: ID COLON ID tyfields_tail ({
+    name = Symbol.symbol ID1, 
+    escape = ref true,
+    typ = Symbol.symbol ID2,
+    pos = ID1left
+  } :: tyfields_tail)
+         | (* EMPTY *) ([])
 
-tyfields_tail: (* EMPTY *) ()
-              | COMMA ID COLON ID tyfields_tail ()
+tyfields_tail: (* EMPTY *) ([])
+              | COMMA ID COLON ID tyfields_tail ({
+    name = Symbol.symbol ID1,
+    escape = ref true,
+    typ = Symbol.symbol ID2,
+    pos = ID1left
+  } :: tyfields_tail)
 
 (* Variable Declarations *)
-vardec: VAR ID ASSIGN expression ()
-        | VAR ID COLON ID ASSIGN expression ()
+vardec: VAR ID ASSIGN expression (Absyn.VarDec {
+    name = Symbol.symbol ID,
+    escape = ref true,
+    typ = NONE,
+    init = expression,
+    pos = VARleft
+  })
+        | VAR ID COLON ID ASSIGN expression (Absyn.VarDec {
+    name = Symbol.symbol ID1,
+    escape = ref true,
+    typ = SOME (Symbol.symbol ID2, ID2left),
+    init = expression,
+    pos = VARleft
+  })
 
-lvalue: ID lvalue_tail ()
+lvalue: ID lvalue_tail (lvalue_tail (Absyn.SimpleVar (Symbol.symbol ID, IDleft)))
 
-lvalue_tail: (* EMPTY *) ()
-        | DOT lvalue ()
-        | LBRACK expression RBRACK lvalue_tail ()
+(* lvalue_tail is a function that takes in the lvalue so far and returns the
+ * lvalue that includes the tail *) 
+lvalue_tail: (* EMPTY *) (fn var => var)
+        | DOT ID lvalue_tail (fn var => Absyn.FieldVar (var, Symbol.symbol ID, DOTleft))
+        | LBRACK expression RBRACK lvalue_tail (fn var => Absyn.SubscriptVar
+        (var, expression, LBRACKleft))
 
 (* Function Declarations *)
-fundec: FUNCTION ID LPAREN tyfields RPAREN EQ expression ()
-        | FUNCTION ID LPAREN tyfields RPAREN COLON ID EQ expression ()
+(* TODO: mutual recursion *)
+fundec: FUNCTION ID LPAREN tyfields RPAREN EQ expression (Absyn.FunctionDec [{
+    name = Symbol.symbol ID,
+    params = tyfields,
+    result = NONE,
+    body = expression,
+    pos = FUNCTIONleft
+  }])
+        | FUNCTION ID LPAREN tyfields RPAREN COLON ID EQ expression (Absyn.FunctionDec [{
+    name = Symbol.symbol ID1,
+    params = tyfields,
+    result = SOME (Symbol.symbol ID2, ID2left),
+    body = expression,
+    pos = FUNCTIONleft
+  }])
 
 
 (* Expressions *)
@@ -86,78 +134,195 @@ fundec: FUNCTION ID LPAREN tyfields RPAREN EQ expression ()
 
 
 (* A single expression *)
-expression: boolean_expr ()
-            | record_creation ()
-            | ID LBRACK expression RBRACK OF expression () (* array creation *)
-            | lvalue ASSIGN expression () (* Assignment *)
-            | IF expression THEN expression ELSE expression ()
-            | IF expression THEN expression %prec IF_THEN ()
-            | WHILE expression DO expression ()
-            | FOR ID ASSIGN expression TO expression DO expression ()
-            | let_expr ()
+expression: boolean_expr (boolean_expr)
+            | record_creation (record_creation)
+            | ID LBRACK expression RBRACK OF expression (Absyn.ArrayExp {
+                typ = Symbol.symbol ID,
+                size = expression1,
+                init = expression2,
+                pos = IDleft
+            }) (* array creation *)
+            | lvalue ASSIGN expression (Absyn.AssignExp {
+                var = lvalue,
+                exp = expression,
+                pos = lvalueleft
+            }) (* Assignment *)
+            | IF expression THEN expression ELSE expression (Absyn.IfExp {
+                test = expression1,
+                then' = expression2,
+                else' = SOME expression3,
+                pos = IFleft
+              })
+            | IF expression THEN expression %prec IF_THEN (Absyn.IfExp {
+                test = expression1,
+                then' = expression2,
+                else' = NONE,
+                pos = IFleft
+              })
+            | WHILE expression DO expression (Absyn.WhileExp {
+                test = expression1,
+                body = expression2,
+                pos = WHILEleft
+              })
+            | FOR ID ASSIGN expression TO expression DO expression (Absyn.ForExp {
+                var = Symbol.symbol ID,
+                escape = ref true,
+                lo = expression1,
+                hi = expression2,
+                body = expression3,
+                pos = FORleft
+            })
+            | let_expr (let_expr)
 
 
 (* A list of expressions is technically an expression, whose value is the last
  * expression in the list *)
-expression_list: expression expression_list_tail ()
-
-expression_list_tail: SEMICOLON expression_list ()
-                  | (* EMPTY *) ()
+expression_list: expression expression_list_tail (
+  (expression, expressionleft) :: expression_list_tail
+)
+expression_list_tail: SEMICOLON expression_list (expression_list)
+                  | (* EMPTY *) ([])
 
 (* Function arguments *)
-comma_expr_list: expression comma_expr_list_tail ()
-                      | (* EMPTY *) ()
+comma_expr_list: expression comma_expr_list_tail (expression :: comma_expr_list_tail)
+                      | (* EMPTY *) ([])
 
-comma_expr_list_tail: (* EMPTY *) ()
-                      | COMMA expression comma_expr_list_tail ()
+comma_expr_list_tail: (* EMPTY *) ([])
+                      | COMMA expression comma_expr_list_tail (expression ::
+                      comma_expr_list_tail)
 
 (* Only highest-precedence expressions: literals, values, function calls *)
 literal_expr:
               (* This is the "wraparound rule". Parentheses reset associativity, allowing all
                * expressions *)
-              LPAREN expression_list RPAREN () 
+              LPAREN expression_list RPAREN (Absyn.SeqExp expression_list) 
 
-              | lvalue ()
-              | ID LPAREN comma_expr_list RPAREN ()  (* Function call with 0 or more parameters *)
-              | NIL ()
-              | INT ()
-              | STRING ()
-              | BREAK ()
-              | LPAREN RPAREN () (* Unit value *)
+              | lvalue (Absyn.VarExp lvalue)
+              | ID LPAREN comma_expr_list RPAREN (Absyn.CallExp {
+                  func = Symbol.symbol ID,
+                  args = comma_expr_list,
+                  pos = IDleft
+                })  (* Function call with 0 or more parameters *)
+              | NIL (Absyn.NilExp)
+              | INT (Absyn.IntExp INT)
+              | STRING (Absyn.StringExp (STRING, STRINGleft))
+              | BREAK (Absyn.BreakExp BREAKleft)
+              | LPAREN RPAREN (Absyn.SeqExp []) (* Unit value *)
 
 (* Unary minus is the highest-precedent operator *)
-uminus_expr: literal_expr ()
-              | MINUS literal_expr ()
+uminus_expr: literal_expr (literal_expr)
+              | MINUS literal_expr (Absyn.OpExp {
+                  left = Absyn.IntExp 0,
+                  oper = Absyn.MinusOp,
+                  right = literal_expr,
+                  pos = MINUSleft
+                })
 
 (* Arithmetic expressions *)
-arithmetic_expr: uminus_expr ()
-              | arithmetic_expr PLUS arithmetic_expr ()
-              | arithmetic_expr MINUS arithmetic_expr ()
-              | arithmetic_expr TIMES arithmetic_expr ()
-              | arithmetic_expr DIVIDE arithmetic_expr ()
+arithmetic_expr: uminus_expr (uminus_expr)
+              | arithmetic_expr PLUS arithmetic_expr (Absyn.OpExp {
+                  left = arithmetic_expr1,
+                  oper = Absyn.PlusOp,
+                  right = arithmetic_expr2,
+                  pos = arithmetic_expr1left
+                })
+              | arithmetic_expr MINUS arithmetic_expr (Absyn.OpExp {
+                  left = arithmetic_expr1,
+                  oper = Absyn.MinusOp,
+                  right = arithmetic_expr2,
+                  pos = arithmetic_expr1left
+                })
+              | arithmetic_expr TIMES arithmetic_expr (Absyn.OpExp {
+                  left = arithmetic_expr1,
+                  oper = Absyn.TimesOp,
+                  right = arithmetic_expr2,
+                  pos = arithmetic_expr1left
+                })
+              | arithmetic_expr DIVIDE arithmetic_expr (Absyn.OpExp {
+                  left = arithmetic_expr1,
+                  oper = Absyn.DivideOp,
+                  right = arithmetic_expr2,
+                  pos = arithmetic_expr1left
+                })
 
 (* Expressions with comparison operations *)
-comparison_expr: arithmetic_expr ()
-              | arithmetic_expr EQ arithmetic_expr ()
-              | arithmetic_expr NEQ arithmetic_expr ()
-              | arithmetic_expr GT arithmetic_expr ()
-              | arithmetic_expr LT arithmetic_expr ()
-              | arithmetic_expr GE arithmetic_expr ()
-              | arithmetic_expr LE arithmetic_expr ()
+comparison_expr: arithmetic_expr (arithmetic_expr)
+              | arithmetic_expr EQ arithmetic_expr (Absyn.OpExp {
+                  left = arithmetic_expr1,
+                  oper = Absyn.EqOp,
+                  right = arithmetic_expr2,
+                  pos = arithmetic_expr1left
+                })
+              | arithmetic_expr NEQ arithmetic_expr (Absyn.OpExp {
+                  left = arithmetic_expr1,
+                  oper = Absyn.NeqOp,
+                  right = arithmetic_expr2,
+                  pos = arithmetic_expr1left
+                })
+              | arithmetic_expr GT arithmetic_expr (Absyn.OpExp {
+                  left = arithmetic_expr1,
+                  oper = Absyn.GtOp,
+                  right = arithmetic_expr2,
+                  pos = arithmetic_expr1left
+                })
+              | arithmetic_expr LT arithmetic_expr (Absyn.OpExp {
+                  left = arithmetic_expr1,
+                  oper = Absyn.LtOp,
+                  right = arithmetic_expr2,
+                  pos = arithmetic_expr1left
+                })
+              | arithmetic_expr GE arithmetic_expr (Absyn.OpExp {
+                  left = arithmetic_expr1,
+                  oper = Absyn.GeOp,
+                  right = arithmetic_expr2,
+                  pos = arithmetic_expr1left
+                })
+              | arithmetic_expr LE arithmetic_expr (Absyn.OpExp {
+                  left = arithmetic_expr1,
+                  oper = Absyn.LeOp,
+                  right = arithmetic_expr2,
+                  pos = arithmetic_expr1left
+                })
 
 (* Expressions with boolean operators *)
-boolean_expr: comparison_expr ()
-              | boolean_expr AND boolean_expr ()
-              | boolean_expr OR boolean_expr ()
+boolean_expr: comparison_expr (comparison_expr)
+              | boolean_expr AND boolean_expr (Absyn.IfExp {
+                  test = boolean_expr1,
+                  then' = boolean_expr2,
+                  else' = SOME (Absyn.IntExp 0),
+                  pos = boolean_expr1left
+                })
+              | boolean_expr OR boolean_expr (Absyn.IfExp {
+                  test = boolean_expr1,
+                  then' = Absyn.IntExp 1,
+                  else' = SOME boolean_expr2,
+                  pos = boolean_expr1left
+                })
 
 (* Records *)
-record_creation: ID LBRACE record_expr_list RBRACE ()
+record_creation: ID LBRACE record_expr_list RBRACE (Absyn.RecordExp {
+    fields = record_expr_list,
+    typ = Symbol.symbol ID,
+    pos = IDleft
+  })
 
-record_expr_list: ID EQ expression record_expr_list_tail ()
-                  | (* EMPTY *) ()
+record_expr_list: ID EQ expression record_expr_list_tail (
+    (Symbol.symbol ID, expression, IDleft) :: record_expr_list_tail
+  )
+                  | (* EMPTY *) ([])
 
-record_expr_list_tail: (* EMPTY *) ()
-                        | COMMA ID EQ expression record_expr_list_tail ()
+record_expr_list_tail: (* EMPTY *) ([])
+                        | COMMA ID EQ expression record_expr_list_tail (
+    (Symbol.symbol ID, expression, IDleft) :: record_expr_list_tail
+  )
 
-let_expr: LET decs IN expression_list END ()
-          | LET decs IN END ()    (* a way to put no value for an expression *)
+let_expr: LET decs IN expression_list END (Absyn.LetExp {
+                decs = decs,
+                body = Absyn.SeqExp expression_list,
+                pos = LETleft
+            })
+          | LET decs IN END (Absyn.LetExp {
+                decs = decs,
+                body = Absyn.NilExp,
+                pos = LETleft
+            })    (* a way to put no value for an expression *)

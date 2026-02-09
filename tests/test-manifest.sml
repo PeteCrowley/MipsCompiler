@@ -29,12 +29,12 @@ struct
 
   fun parse (input, output) =
     let
-      fun do_it () =
-        Parse.parse input
-        handle Fail msg => print ("Program raised Fail: " ^ msg)
+      val absyn = Parse.parse input
+      val outputFile = TextIO.openOut output
     in
-      IOUtil.withOutputFile (output, do_it) ()
+      PrintAbsyn.print (outputFile, absyn)
     end
+    handle Fail msg => print ("Program raised Fail: " ^ msg)
 
   val allTests =
     [ { test_name = "echo"
@@ -45,10 +45,9 @@ struct
       , test_dirs = ["appel-programs", "lexer-programs"]
       , test_fn = lex
       }
-    , {
-      test_name = "parse"
+    , { test_name = "parse"
       , test_dirs = ["appel-programs", "parser-programs"]
       , test_fn = parse
-     }
+      }
     ]
 end

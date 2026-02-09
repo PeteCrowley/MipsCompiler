@@ -10,5 +10,6 @@ table.sig
 table.sml
 symbol.sml
 parse.sml
+prabsyn.sml
 tiger.lex
 tiger.grm
