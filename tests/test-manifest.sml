@@ -27,6 +27,15 @@ struct
       IOUtil.withOutputFile (output, do_it) ()
     end
 
+  fun parse (input, output) =
+    let
+      fun do_it () =
+        Parse.parse input
+        handle Fail msg => print ("Program raised Fail: " ^ msg)
+    in
+      IOUtil.withOutputFile (output, do_it) ()
+    end
+
   val allTests =
     [ { test_name = "echo"
       , test_dirs = ["appel-programs", "lexer-programs"]
@@ -36,5 +45,10 @@ struct
       , test_dirs = ["appel-programs", "lexer-programs"]
       , test_fn = lex
       }
+    , {
+      test_name = "parse"
+      , test_dirs = ["appel-programs", "parser-programs"]
+      , test_fn = parse
+     }
     ]
 end

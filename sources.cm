@@ -2,7 +2,7 @@ Group is
 
 $/basis.cm
 $/smlnj-lib.cm
-src/lexer/sources.cm
 
-src/helloworld.sml
+src/lexer/sources.cm
+src/parser/sources.cm
 tests/sources.cm
