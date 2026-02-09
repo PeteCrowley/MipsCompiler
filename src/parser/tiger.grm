@@ -10,10 +10,10 @@
   | ARRAY | IF | THEN | ELSE | WHILE | FOR | TO | DO | LET | IN | END | OF 
   | BREAK | NIL
   | FUNCTION | VAR | TYPE
-  | UMINUS
+  | IF_THEN
 
 %nonterm program | expression | expression_list | expression_list_tail | comma_expr_list | comma_expr_list_tail
-        | literal_expr | uminus_expr | arithmetic_expr | comparison_expr | boolean_expr
+        | literal_expr | uminus_expr | arithmetic_expr | comparison_expr | boolean_expr | let_expr
         | record_creation | record_expr_list | record_expr_list_tail
         | decs | dec | lvalue | lvalue_tail
         | tydec | ty | tyfields | tyfields_tail 
@@ -32,11 +32,11 @@
 
 %prefer THEN ELSE LPAREN
 
-%left UMINUS
-%left TIMES DIVIDE
-%left PLUS MINUS
+%nonassoc IF_THEN
+%nonassoc ELSE
 %left AND OR
-
+%left PLUS MINUS
+%left TIMES DIVIDE
 
 %%
 
@@ -91,10 +91,10 @@ expression: boolean_expr ()
             | ID LBRACK expression RBRACK OF expression () (* array creation *)
             | lvalue ASSIGN expression () (* Assignment *)
             | IF expression THEN expression ELSE expression ()
-            | IF expression THEN expression ()
+            | IF expression THEN expression %prec IF_THEN ()
             | WHILE expression DO expression ()
             | FOR ID ASSIGN expression TO expression DO expression ()
-            | LET decs IN expression_list END ()
+            | let_expr ()
 
 
 (* A list of expressions is technically an expression, whose value is the last
@@ -123,6 +123,7 @@ literal_expr:
               | INT ()
               | STRING ()
               | BREAK ()
+              | LPAREN RPAREN () (* Unit value *)
 
 (* Unary minus is the highest-precedent operator *)
 uminus_expr: literal_expr ()
@@ -157,3 +158,6 @@ record_expr_list: ID EQ expression record_expr_list_tail ()
 
 record_expr_list_tail: (* EMPTY *) ()
                         | COMMA ID EQ expression record_expr_list_tail ()
+
+let_expr: LET decs IN expression_list END ()
+          | LET decs IN END ()    (* a way to put no value for an expression *)

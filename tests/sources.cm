@@ -9,3 +9,4 @@ test-driver.sig
 test-driver.sml
 
 ../src/lexer/sources.cm
+../src/parser/sources.cm
