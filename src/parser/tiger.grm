@@ -48,14 +48,20 @@
 
 program : expression (expression)
 
-decs : dec decs (dec :: decs)
+decs : dec decs (
+  case (dec, decs) of
+    (Absyn.FunctionDec d1, (Absyn.FunctionDec d2 :: decs')) =>
+      (Absyn.FunctionDec (d1 @ d2)) :: decs'
+  | (Absyn.TypeDec d1, (Absyn.TypeDec d2 :: decs')) =>
+      (Absyn.TypeDec (d1 @ d2)) :: decs'
+  | (dec', decs') => dec' :: decs'
+)
         | (* EMPTY *) ([])
 dec: tydec (tydec)
         | vardec (vardec)
         | fundec (fundec)
 
 (* Type Declarations *)
-(* TODO: Handle mutual recursion *)
 tydec: TYPE ID EQ ty (Absyn.TypeDec [{
     name = Symbol.symbol ID,
     ty = ty,
@@ -108,7 +114,6 @@ lvalue_tail: (* EMPTY *) (fn var => var)
         (var, expression, LBRACKleft))
 
 (* Function Declarations *)
-(* TODO: mutual recursion *)
 fundec: FUNCTION ID LPAREN tyfields RPAREN EQ expression (Absyn.FunctionDec [{
     name = Symbol.symbol ID,
     params = tyfields,
