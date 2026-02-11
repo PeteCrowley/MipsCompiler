@@ -1,0 +1,9 @@
+let
+    var a := 10 - 5 - 6 /* sub associativity */
+    var b := 10 + 6 * 5 /* mult precedence */
+    var c :=  1 + 2 / 3 /* div precedence */
+    var d := 6 / 6 / 6 /* div associativity */
+    var e := 3 * (4 + 2) /* parentheses enforce grouping */
+in
+    a + b * c - e / d /* jumble */
+end

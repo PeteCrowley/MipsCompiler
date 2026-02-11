@@ -2,10 +2,10 @@ let
 	var a := 5
 	var b := (5)
 	var c := ((5))
-	var d := 1; 5
+	var d := 1; 5 /* Parse error: parentheses are needed */
 	var e := (1; 5)
-	var f := ((1; 2); 3); 5
+	var f := ((1; 2); 3); 5 /* Parse error: parentheses are needed */
 	var g := (((1; 2); 3); 5)
 in
-	(a; b; c; d; e; f; g)
+	a; b; c; d; e; f; g /* Parentheses not needed inside let expression */
 end
