@@ -321,13 +321,21 @@ record_expr_list_tail: (* EMPTY *) ([])
     (Symbol.symbol ID, expression, IDleft) :: record_expr_list_tail
   )
 
-let_expr: LET decs IN expression_list END (Absyn.LetExp {
+let_expr: LET decs IN expression_list END (
+  let
+    val body = case expression_list of
+      [(expr, pos)] => expr
+    | expr_list => Absyn.SeqExp expr_list
+  in
+    Absyn.LetExp {
                 decs = decs,
-                body = Absyn.SeqExp expression_list,
+                body = body,
                 pos = LETleft
-            })
+            }
+  end
+)
           | LET decs IN END (Absyn.LetExp {
                 decs = decs,
-                body = Absyn.NilExp,
+                body = Absyn.SeqExp [],
                 pos = LETleft
             })    (* a way to put no value for an expression *)
