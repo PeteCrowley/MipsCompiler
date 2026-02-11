@@ -32,7 +32,8 @@ struct
       val absyn = Parse.parse input
       val outputFile = TextIO.openOut output
     in
-      PrintAbsyn.print (outputFile, absyn)
+      PrintAbsyn.print (outputFile, absyn);
+      TextIO.closeOut outputFile
     end
     handle Fail msg => print ("Program raised Fail: " ^ msg)
 
