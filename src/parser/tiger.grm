@@ -109,9 +109,8 @@ lvalue: ID lvalue_tail (lvalue_tail (Absyn.SimpleVar (Symbol.symbol ID, IDleft))
 (* lvalue_tail is a function that takes in the lvalue so far and returns the
  * lvalue that includes the tail *) 
 lvalue_tail: (* EMPTY *) (fn var => var)
-        | DOT ID lvalue_tail (fn var => Absyn.FieldVar (var, Symbol.symbol ID, DOTleft))
-        | LBRACK expression RBRACK lvalue_tail (fn var => Absyn.SubscriptVar
-        (var, expression, LBRACKleft))
+        | DOT ID lvalue_tail (fn var => lvalue_tail (Absyn.FieldVar (var, Symbol.symbol ID, DOTleft)))
+        | LBRACK expression RBRACK lvalue_tail (fn var => lvalue_tail (Absyn.SubscriptVar (var, expression, LBRACKleft)))
 
 (* Function Declarations *)
 fundec: FUNCTION ID LPAREN tyfields RPAREN EQ expression (Absyn.FunctionDec [{

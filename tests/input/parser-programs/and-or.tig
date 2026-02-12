@@ -1,0 +1,6 @@
+let
+	var x := a & b | c
+	var y := a | b & c
+in
+	(x & y) | (x & y)
+end

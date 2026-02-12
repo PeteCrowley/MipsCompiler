@@ -1,0 +1,7 @@
+let
+	var one := a.b.c
+	var two := a[b.c]
+	var three := a.b[c.d]
+	var four := a.b[c.d.e[f][g]][h].i[j][12].k.l.m[n][o[p]][q].r
+in
+end
