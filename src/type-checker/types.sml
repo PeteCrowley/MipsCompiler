@@ -5,12 +5,11 @@ struct
 
   datatype ty = 
             RECORD of (() -> ((Symbol.symbol * ty) list)) * unique
-          | NIL
+          | NIL (* subtype of all non-primitives *)
           | INT
           | STRING
           | ARRAY of ty * unique
           | ARROW of (ty list) * ty
-	  | UNIT
-
+          | UNIT (* top type *)
+          | BOTTOM (* type of impossibility *)
 end
-
