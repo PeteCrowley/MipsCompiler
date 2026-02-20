@@ -7,4 +7,5 @@ $/ml-yacc-lib.cm
 ../parser/sources.cm
 types.sml
 semant.sml
-env.sig
+env.sml
+translate.sml
