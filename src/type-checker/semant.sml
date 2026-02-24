@@ -134,34 +134,32 @@ struct
               if areTypesEqual(expr_ty, var_ty) then () else ErrorMsg.error pos "Incompatible type between variable and expression";
               {exp = (), ty = Types.UNIT}
             end
-        | checkExp
-            (Absyn.IfExp
-               {test, then', else', pos}) = 
-                let 
-                  val {exp = _, ty = then_ty} = checkExp then'
-                  val {exp = _, ty = else_ty} = case else' of
-                    SOME else_exp => checkExp else_exp
-                    | NONE => {exp = (), ty = Types.UNIT}
+        | checkExp (Absyn.IfExp {test, then', else', pos}) = 
+            let 
+              val {exp = _, ty = then_ty} = checkExp then'
+              val {exp = _, ty = else_ty} = case else' of
+                SOME else_exp => checkExp else_exp
+                | NONE => {exp = (), ty = Types.UNIT}
 
-                in
-                  checkInt((checkExp test), pos);
-                  if areTypesEqual(then_ty, else_ty) 
-                    then {exp = (), ty = then_ty} (* this won't properly handle the case where something is a subtype of another *)
-                    else (ErrorMsg.error pos "Type mismatch in if then else statement"; {exp = (), ty = Types.BOTTOM})
-                end
+            in
+              checkInt((checkExp test), pos);
+              if areTypesEqual(then_ty, else_ty) 
+                then {exp = (), ty = then_ty} (* this won't properly handle the case where something is a subtype of another *)
+                else (ErrorMsg.error pos "Type mismatch in if then else statement"; {exp = (), ty = Types.BOTTOM})
+            end
                 
-        | checkExp
-            (Absyn.WhileExp {test: Absyn.exp, body: Absyn.exp, pos: Absyn.pos}) =
-            {exp = (), ty = Types.NIL}
-        | checkExp
-            (Absyn.ForExp
-               { var: Absyn.symbol
-               , escape: bool ref
-               , lo: Absyn.exp
-               , hi: Absyn.exp
-               , body: Absyn.exp
-               , pos: Absyn.pos
-               }) = {exp = (), ty = Types.NIL}
+        | checkExp (Absyn.WhileExp {test, body, pos}) = 
+            let
+              val {exp = e, ty = body_ty} = checkExp body
+            in
+              checkInt(checkExp test, pos);
+              case body_ty of
+                Types.UNIT => ()
+                | _ => ErrorMsg.error pos "Body of while loop produces non-unit value";
+              {exp = (), ty = Types.UNIT}
+            end
+            
+        | checkExp (Absyn.ForExp { var, escape, lo, hi, body, pos}) = {exp = (), ty = Types.NIL}
         | checkExp (Absyn.BreakExp _) = {exp = (), ty = Types.BOTTOM}
         | checkExp
             (Absyn.LetExp
