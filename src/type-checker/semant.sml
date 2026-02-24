@@ -114,10 +114,19 @@ struct
                 end
               | _ => (ErrorMsg.error pos "Undefined record type"; {exp = (), ty = Types.NIL})
             )
-        | checkExp (Absyn.SeqExp explist) = {exp = (), ty = Types.NIL}
-        | checkExp
-            (Absyn.AssignExp {var: Absyn.var, exp: Absyn.exp, pos: Absyn.pos}) =
-            {exp = (), ty = Types.UNIT}
+        | checkExp (Absyn.SeqExp explist) = (case explist of
+            [] => {exp = (), ty = Types.UNIT}
+            | [(expr, pos)] =>  checkExp expr
+            | (expr, pos)::rest => (checkExp expr; checkExp (Absyn.SeqExp rest))
+        )
+        | checkExp (Absyn.AssignExp {var, exp, pos}) =
+            let
+              val {exp = e1, ty = expr_ty} = checkExp exp
+              val {exp = e2, ty = var_ty} = trvar var
+            in
+              if areTypesEqual(expr_ty, var_ty) then () else ErrorMsg.error pos "Incompatible type between variable and expression";
+              {exp = (), ty = Types.UNIT}
+            end
         | checkExp
             (Absyn.IfExp
                { test: Absyn.exp
