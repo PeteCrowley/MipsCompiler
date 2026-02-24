@@ -149,29 +149,42 @@ struct
             end
                 
         | checkExp (Absyn.WhileExp {test, body, pos}) = 
-            let
-              val {exp = e, ty = body_ty} = checkExp body
-            in
+            (
               checkInt(checkExp test, pos);
-              case body_ty of
-                Types.UNIT => ()
+              case checkExp body of
+                {exp = _, ty = Types.UNIT} => ()
                 | _ => ErrorMsg.error pos "Body of while loop produces non-unit value";
               {exp = (), ty = Types.UNIT}
-            end
+            )
             
-        | checkExp (Absyn.ForExp { var, escape, lo, hi, body, pos}) = {exp = (), ty = Types.NIL}
+        | checkExp (Absyn.ForExp { var, escape, lo, hi, body, pos}) =
+        let
+          val newVenv = Symbol.enter (venv, var, Types.INT) (* not sure how to make sure this new var is read-only *)
+        in
+          checkInt(checkExp lo, pos);
+          checkInt(checkExp hi, pos);
+          case transExp(newVenv, tenv) body of
+            {exp = _, ty = Types.UNIT} => ()
+            | _ => ErrorMsg.error pos "Body of while loop produces non-unit value";
+          {exp = (), ty = Types.UNIT}
+        end
         | checkExp (Absyn.BreakExp _) = {exp = (), ty = Types.BOTTOM}
-        | checkExp
-            (Absyn.LetExp
-               {decs: Absyn.dec list, body: Absyn.exp, pos: Absyn.pos}) =
+        | checkExp (Absyn.LetExp {decs, body, pos}) =
             {exp = (), ty = Types.NIL}
-        | checkExp
-            (Absyn.ArrayExp
-               { typ: Absyn.symbol
-               , size: Absyn.exp
-               , init: Absyn.exp
-               , pos: Absyn.pos
-               }) = {exp = (), ty = Types.NIL}
+        | checkExp (Absyn.ArrayExp {typ, size, init, pos}) = 
+            let
+              val {exp = _, ty = initType} = checkExp init
+            in
+              checkInt(checkExp size, pos);
+              case Symbol.look (venv, typ) of
+                SOME (Types.ARRAY (typeInArr, uq)) => (
+                  if not (areTypesEqual(typeInArr, initType)) 
+                    then (ErrorMsg.error pos ("Initializing expression is incorrect type for array type " ^ Symbol.name typ); {exp = (), ty=Types.BOTTOM}) 
+                    else {exp = (), ty=Types.ARRAY (typeInArr, uq)}
+                )
+                | SOME t => (ErrorMsg.error pos ("Tried to initialize array with non-array type " ^ Symbol.name typ); {exp = (), ty=Types.BOTTOM})
+                | NONE => (ErrorMsg.error pos ("Tried to initialize array with undefined type " ^ Symbol.name typ); {exp = (), ty=Types.BOTTOM})
+            end
     (* | checkExp _ = {exp = (), ty = Types.BOTTOM} *)
       and trvar (Absyn.SimpleVar(id, pos)) = 
         (case Symbol.look(venv, id)
