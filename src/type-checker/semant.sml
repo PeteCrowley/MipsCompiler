@@ -23,17 +23,24 @@ struct
   fun transDec (venv, tenv, dec) = {venv = venv, tenv = tenv}
   fun transTy (tenv, ty) = Types.BOTTOM
 
-  fun areTypesEqual (t1, t2) = case (t1, t2) of
-    (Types.INT, Types.INT) => true
-  | (Types.STRING, Types.STRING) => true
-  | (Types.NIL, Types.NIL) => true
-  | (Types.RECORD (_, uq1), Types.RECORD (_, uq2)) => uq1 = uq2
-  | (Types.RECORD (_, _), Types.NIL) => true
-  | (Types.NIL, Types.RECORD (_, _)) => true
-  | (Types.ARRAY (_, uq1), Types.ARRAY (_, uq2)) => uq1 = uq2
-  | (Types.ARRAY (_, _), Types.NIL) => true
-  | (Types.NIL, Types.ARRAY (_, _)) => true
-  | _ => false
+  fun areTypesEqual (t1, t2) = 
+    let fun areFunctionArgsEqual ([], []) = true
+        | areFunctionArgsEqual (ty1::rest1, ty2::rest2) = areTypesEqual (ty1, ty2) andalso areFunctionArgsEqual (rest1, rest2)
+        | areFunctionArgsEqual (_, _) = false 
+    in
+      case (t1, t2) of
+        (Types.INT, Types.INT) => true
+      | (Types.STRING, Types.STRING) => true
+      | (Types.NIL, Types.NIL) => true
+      | (Types.RECORD (_, uq1), Types.RECORD (_, uq2)) => uq1 = uq2
+      | (Types.RECORD (_, _), Types.NIL) => true
+      | (Types.NIL, Types.RECORD (_, _)) => true
+      | (Types.ARRAY (_, uq1), Types.ARRAY (_, uq2)) => uq1 = uq2
+      | (Types.ARRAY (_, _), Types.NIL) => true
+      | (Types.NIL, Types.ARRAY (_, _)) => true
+      | (Types.ARROW (args1, ret1), Types.ARROW (args2, ret2)) => areTypesEqual (ret1, ret2) andalso areFunctionArgsEqual (args1, args2)
+      | _ => false
+    end
 
   fun checkInt ({exp, ty}, pos) = case ty of 
                                     Types.INT => ()
