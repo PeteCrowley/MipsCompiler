@@ -23,7 +23,11 @@ struct
 
   fun transExp (venv, tenv) =
     let
-      fun checkExp (Absyn.VarExp var) = {exp = (), ty = Types.BOTTOM}
+      fun checkExp (Absyn.VarExp var) = 
+          let val {exp = e, ty = ty} = trvar var
+          in
+            {exp = (), ty = ty}
+          end
         | checkExp Absyn.NilExp = {exp = (), ty = Types.NIL}
         | checkExp (Absyn.IntExp _) = {exp = (), ty = Types.INT}
         | checkExp (Absyn.StringExp (_, _)) = {exp = (), ty = Types.STRING}
