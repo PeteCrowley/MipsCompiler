@@ -20,6 +20,8 @@ struct
   fun transProg exp = ()
 
   fun transVar (venv, tenv, var) = {exp = (), ty = Types.BOTTOM}
+  fun transDec (venv, tenv, dec) = {venv = venv, tenv = tenv}
+  fun transTy (tenv, ty) = Types.BOTTOM
 
   fun checkInt ({exp, ty}, pos) = case ty of 
                                     Types.INT => ()
@@ -49,7 +51,7 @@ struct
             )
           | Types.RECORD (_, uq1) => (case t2 of 
               Types.RECORD (_, uq2) => (if uq1 = uq2 then () else ErrorMsg.error pos "incompatible record types")
-              | _ => ErrorMsg.error pos "expected record type"
+              | _ => ErrorMsg.error pos "expected record type"  (* This doesn't handle nil right now *)
             )
           | Types.ARRAY (_, uq1) => (case t2 of 
               Types.ARRAY (_, uq2) => (if uq1 = uq2 then () else ErrorMsg.error pos "incompatible array types")
@@ -81,8 +83,7 @@ struct
                 | (Absyn.LeOp | Absyn.LtOp | Absyn.GeOp | Absyn.GtOp) => checkOrderable(checkExp left, checkExp right, pos)
                 | (Absyn.EqOp | Absyn.NeqOp) => checkEqualable(checkExp left, checkExp right, pos);
               {exp = (), ty = Types.INT} 
-            )
-              
+            )  
           
         | checkExp
             (Absyn.RecordExp
@@ -153,6 +154,10 @@ struct
         | trvar (Absyn.SubscriptVar(v, exp, pos)) = 
             let
               val {exp = e, ty = ty} = trvar v
+              val {exp = e2, ty = t2} = checkExp exp
+              val () = case t2 of
+                        Types.INT => ()
+                        | _ => ErrorMsg.error pos "subscript must be an integer"
             in
               case ty of
                 Types.ARRAY (t, uq) => {exp = (), ty = t} 
@@ -164,6 +169,4 @@ struct
       checkExp
     end
 
-  fun transDec (venv, tenv, dec) = {venv = venv, tenv = tenv}
-  fun transTy (tenv, ty) = Types.BOTTOM
 end
