@@ -21,6 +21,42 @@ struct
 
   fun transVar (venv, tenv, var) = {exp = (), ty = Types.BOTTOM}
 
+  fun checkInt ({exp, ty}, pos) = case ty of 
+                                    Types.INT => ()
+                                    | _ => ErrorMsg.error pos "expected integer"
+
+  fun checkOrderable({exp = e1, ty = t1}, {exp = e2, ty = t2}, pos) = 
+        case t1 of 
+          Types.INT => (case t2 of 
+              Types.INT => ()
+              | _ => ErrorMsg.error pos "expected integer"
+            )
+          | Types.STRING => (case t2 of 
+              Types.STRING => ()
+              | _ => ErrorMsg.error pos "expected string"
+            )
+          | _ => ErrorMsg.error pos "expected integer or string"
+
+  fun checkEqualable({exp = e1, ty = t1}, {exp = e2, ty = t2}, pos) = 
+        case t1 of 
+          Types.INT => (case t2 of 
+              Types.INT => ()
+              | _ => ErrorMsg.error pos "expected integer"
+            )
+          | Types.STRING => (case t2 of 
+              Types.STRING => ()
+              | _ => ErrorMsg.error pos "expected string"
+            )
+          | Types.RECORD (_, uq1) => (case t2 of 
+              Types.RECORD (_, uq2) => (if uq1 = uq2 then () else ErrorMsg.error pos "incompatible record types")
+              | _ => ErrorMsg.error pos "expected record type"
+            )
+          | Types.ARRAY (_, uq1) => (case t2 of 
+              Types.ARRAY (_, uq2) => (if uq1 = uq2 then () else ErrorMsg.error pos "incompatible array types")
+              | _ => ErrorMsg.error pos "expected array type"
+            )
+          | _ => ErrorMsg.error pos "expected integer, string, record, or array"
+
   fun transExp (venv, tenv) =
     let
       fun checkExp (Absyn.VarExp var) = 
@@ -39,12 +75,15 @@ struct
             , ty = Types.BOTTOM
             }
         | checkExp
-            (Absyn.OpExp
-               { left: Absyn.exp
-               , oper: Absyn.oper
-               , right: Absyn.exp
-               , pos: Absyn.pos
-               }) = {exp = (), ty = Types.NIL}
+            (Absyn.OpExp{left, oper, right, pos}) = (
+              case oper of
+                (Absyn.PlusOp | Absyn.MinusOp | Absyn.TimesOp | Absyn.DivideOp) => (checkInt(checkExp left, pos); checkInt(checkExp right, pos))
+                | (Absyn.LeOp | Absyn.LtOp | Absyn.GeOp | Absyn.GtOp) => checkOrderable(checkExp left, checkExp right, pos)
+                | (Absyn.EqOp | Absyn.NeqOp) => checkEqualable(checkExp left, checkExp right, pos);
+              {exp = (), ty = Types.INT} 
+            )
+              
+          
         | checkExp
             (Absyn.RecordExp
                { fields: (Absyn.symbol * Absyn.exp * Absyn.pos) list
