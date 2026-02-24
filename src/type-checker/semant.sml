@@ -23,41 +23,36 @@ struct
   fun transDec (venv, tenv, dec) = {venv = venv, tenv = tenv}
   fun transTy (tenv, ty) = Types.BOTTOM
 
+  fun areTypesEqual (t1, t2) = case (t1, t2) of
+    (Types.INT, Types.INT) => true
+  | (Types.STRING, Types.STRING) => true
+  | (Types.NIL, Types.NIL) => true
+  | (Types.RECORD (_, uq1), Types.RECORD (_, uq2)) => uq1 = uq2
+  | (Types.RECORD (_, _), Types.NIL) => true
+  | (Types.NIL, Types.RECORD (_, _)) => true
+  | (Types.ARRAY (_, uq1), Types.ARRAY (_, uq2)) => uq1 = uq2
+  | (Types.ARRAY (_, _), Types.NIL) => true
+  | (Types.NIL, Types.ARRAY (_, _)) => true
+  | _ => false
+
   fun checkInt ({exp, ty}, pos) = case ty of 
                                     Types.INT => ()
                                     | _ => ErrorMsg.error pos "expected integer"
 
   fun checkOrderable({exp = e1, ty = t1}, {exp = e2, ty = t2}, pos) = 
-        case t1 of 
-          Types.INT => (case t2 of 
-              Types.INT => ()
-              | _ => ErrorMsg.error pos "expected integer"
-            )
-          | Types.STRING => (case t2 of 
-              Types.STRING => ()
-              | _ => ErrorMsg.error pos "expected string"
-            )
-          | _ => ErrorMsg.error pos "expected integer or string"
+        case (t1, t2) of 
+          (Types.INT, Types.INT) => ()
+          | (Types.STRING, Types.STRING) => ()
+          | _ => ErrorMsg.error pos "expected int * int or str * str"
 
   fun checkEqualable({exp = e1, ty = t1}, {exp = e2, ty = t2}, pos) = 
-        case t1 of 
-          Types.INT => (case t2 of 
-              Types.INT => ()
-              | _ => ErrorMsg.error pos "expected integer"
-            )
-          | Types.STRING => (case t2 of 
-              Types.STRING => ()
-              | _ => ErrorMsg.error pos "expected string"
-            )
-          | Types.RECORD (_, uq1) => (case t2 of 
-              Types.RECORD (_, uq2) => (if uq1 = uq2 then () else ErrorMsg.error pos "incompatible record types")
-              | _ => ErrorMsg.error pos "expected record type"  (* This doesn't handle nil right now *)
-            )
-          | Types.ARRAY (_, uq1) => (case t2 of 
-              Types.ARRAY (_, uq2) => (if uq1 = uq2 then () else ErrorMsg.error pos "incompatible array types")
-              | _ => ErrorMsg.error pos "expected array type"
-            )
-          | _ => ErrorMsg.error pos "expected integer, string, record, or array"
+        case (t1, t2) of 
+          (Types.INT, Types.INT) => ()
+          | (Types.STRING, Types.STRING) => ()
+          | (Types.RECORD (_, uq1), Types.RECORD (_, uq2)) => if uq1 = uq2 then () else ErrorMsg.error pos "record types do not match"
+          | (Types.RECORD (_, _), Types.NIL) => ()
+          | (Types.NIL, Types.RECORD (_, _)) => ()
+          | _ => ErrorMsg.error pos "expected integer, string, record, or array tuple"
 
   fun transExp (venv, tenv) =
     let
@@ -76,8 +71,7 @@ struct
             { exp = ()
             , ty = Types.BOTTOM
             }
-        | checkExp
-            (Absyn.OpExp{left, oper, right, pos}) = (
+        | checkExp (Absyn.OpExp{left, oper, right, pos}) = (
               case oper of
                 (Absyn.PlusOp | Absyn.MinusOp | Absyn.TimesOp | Absyn.DivideOp) => (checkInt(checkExp left, pos); checkInt(checkExp right, pos))
                 | (Absyn.LeOp | Absyn.LtOp | Absyn.GeOp | Absyn.GtOp) => checkOrderable(checkExp left, checkExp right, pos)
@@ -85,12 +79,41 @@ struct
               {exp = (), ty = Types.INT} 
             )  
           
-        | checkExp
-            (Absyn.RecordExp
-               { fields: (Absyn.symbol * Absyn.exp * Absyn.pos) list
-               , typ: Absyn.symbol
-               , pos: Absyn.pos
-               }) = {exp = (), ty = Types.NIL}
+        | checkExp (Absyn.RecordExp{fields, typ, pos}) = 
+            (
+            case Symbol.look (tenv, typ) of
+              (* condition 1: the type must be defined as a record type *)
+              SOME (Types.RECORD rec_type) =>
+                let 
+                  val (rec_func, uq) = rec_type
+                  val expectedFieldList = rec_func ()
+                  val numFieldsGiven = List.length fields
+                  val numFieldsExpected = List.length expectedFieldList
+                  (* condition 2: the number of fields given must match the number of fields expected *)
+                  val () = if numFieldsGiven < numFieldsExpected 
+                    then ErrorMsg.error pos ("Not enough fields given for record type " ^ Symbol.name typ)
+                    else
+                      if numFieldsGiven > numFieldsExpected 
+                        then ErrorMsg.error pos ("Too many fields given for record type " ^ Symbol.name typ)
+                        else ()
+                  fun checkRecordFields (providedFields, []) = ()
+                      | checkRecordFields (providedFields, (id, ty)::rest) = (
+                          case List.find (fn (s, expr, p) => s = id) providedFields of
+                            SOME (s, expr, p) => 
+                              let 
+                                val {exp = e, ty = expr_ty} = checkExp expr
+                              in
+                                if  areTypesEqual(ty, expr_ty) then ErrorMsg.error p ("Field " ^ Symbol.name id ^ " has incorrect type for record type " ^ Symbol.name typ) else ()
+                              end
+                            | NONE => ErrorMsg.error pos ("Unrecognized field " ^ Symbol.name id ^ " on record type " ^ Symbol.name typ);
+                          checkRecordFields (providedFields, rest))
+                in
+                  (* condition 3: all the expected fields must be provided with the correct expression type *)
+                  checkRecordFields (fields, expectedFieldList);
+                  {exp = (), ty = Types.RECORD rec_type}
+                end
+              | _ => (ErrorMsg.error pos "Undefined record type"; {exp = (), ty = Types.NIL})
+            )
         | checkExp (Absyn.SeqExp explist) = {exp = (), ty = Types.NIL}
         | checkExp
             (Absyn.AssignExp {var: Absyn.var, exp: Absyn.exp, pos: Absyn.pos}) =
