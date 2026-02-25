@@ -17,7 +17,6 @@ struct
   type venv = Env.enventry Symbol.table
   type tenv = Types.ty Symbol.table
 
-  fun transProg exp = ()
 
   fun transVar (venv, tenv, var) = {exp = (), ty = Types.BOTTOM}
   fun transDec (venv, tenv, dec) = {venv = venv, tenv = tenv}
@@ -215,4 +214,10 @@ struct
       checkExp
     end
 
+  fun transProg exp = 
+    let 
+    in
+      transExp(Env.base_venv, Env.base_tenv) exp; 
+      ()
+    end
 end
