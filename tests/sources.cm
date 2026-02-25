@@ -10,3 +10,4 @@ test-driver.sml
 
 ../src/lexer/sources.cm
 ../src/parser/sources.cm
+../src/type-checker/sources.cm

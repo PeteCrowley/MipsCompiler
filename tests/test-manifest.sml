@@ -37,6 +37,18 @@ struct
     end
     handle Fail msg => print ("Program raised Fail: " ^ msg)
 
+  fun typecheck (input, output) =
+    let
+      val absyn = Parse.parse input
+      (* val outputFile = TextIO.openOut output *)
+      fun do_it () = Semant.transProg absyn
+    in
+      IOUtil.withOutputFile (output, do_it) ()
+    (* PrintExpty.print (outputFile, expty); *)
+    (* TextIO.closeOut outputFile *)
+    end
+    handle Fail msg => print ("Program raised Fail: " ^ msg)
+
   val allTests =
     [ { test_name = "echo"
       , test_dirs = ["appel-programs", "lexer-programs"]
@@ -49,6 +61,10 @@ struct
     , { test_name = "parse"
       , test_dirs = ["appel-programs", "parser-programs"]
       , test_fn = parse
+      }
+    , { test_name = "typecheck"
+      , test_dirs = ["typecheck-programs"]
+      , test_fn = typecheck
       }
     ]
 end
