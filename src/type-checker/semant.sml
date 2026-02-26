@@ -37,6 +37,7 @@ struct
       | (Types.ARRAY (_, uq1), Types.ARRAY (_, uq2)) => uq1 = uq2
       | (Types.ARRAY (_, _), Types.NIL) => true
       | (Types.NIL, Types.ARRAY (_, _)) => true
+      | (Types.UNIT, Types.UNIT) => true
       | (Types.ARROW (args1, ret1), Types.ARROW (args2, ret2)) => areTypesEqual (ret1, ret2) andalso areFunctionArgsEqual (args1, args2)
       | _ => false
     end
@@ -111,7 +112,7 @@ struct
                               in
                                 if  areTypesEqual(ty, expr_ty) then ErrorMsg.error p ("Field " ^ Symbol.name id ^ " has incorrect type for record type " ^ Symbol.name typ) else ()
                               end
-                            | NONE => ErrorMsg.error pos ("Unrecognized field " ^ Symbol.name id ^ " on record type " ^ Symbol.name typ);
+                            | NONE => ErrorMsg.error pos ("Field " ^ Symbol.name id ^ " on record type " ^ Symbol.name typ ^ " is missing");
                           checkRecordFields (providedFields, rest))
                 in
                   (* condition 3: all the expected fields must be provided with the correct expression type *)
@@ -144,7 +145,9 @@ struct
               checkInt((checkExp test), pos);
               if areTypesEqual(then_ty, else_ty) 
                 then {exp = (), ty = then_ty} (* this won't properly handle the case where something is a subtype of another *)
-                else (ErrorMsg.error pos "Type mismatch in if then else statement"; {exp = (), ty = Types.BOTTOM})
+                else (ErrorMsg.error pos ("Type mismatch in if then else statement:\n\tThen type: " ^ 
+                        (Types.typeToString then_ty) ^ "\n\tElse type: " ^ (Types.typeToString else_ty)); 
+                        {exp = (), ty = Types.BOTTOM})
             end
                 
         | checkExp (Absyn.WhileExp {test, body, pos}) = 
@@ -157,16 +160,16 @@ struct
             )
             
         | checkExp (Absyn.ForExp { var, escape, lo, hi, body, pos}) =
-        let
-          val newVenv = Symbol.enter (venv, var, Types.INT) (* not sure how to make sure this new var is read-only *)
-        in
-          checkInt(checkExp lo, pos);
-          checkInt(checkExp hi, pos);
-          case transExp(newVenv, tenv) body of
-            {exp = _, ty = Types.UNIT} => ()
-            | _ => ErrorMsg.error pos "Body of while loop produces non-unit value";
-          {exp = (), ty = Types.UNIT}
-        end
+            let
+              val newVenv = Symbol.enter (venv, var, Types.INT) (* not sure how to make sure this new var is read-only *)
+            in
+              checkInt(checkExp lo, pos);
+              checkInt(checkExp hi, pos);
+              case transExp(newVenv, tenv) body of
+                {exp = _, ty = Types.UNIT} => ()
+                | _ => ErrorMsg.error pos "Body of while loop produces non-unit value";
+              {exp = (), ty = Types.UNIT}
+            end
         | checkExp (Absyn.BreakExp _) = {exp = (), ty = Types.BOTTOM}
         | checkExp (Absyn.LetExp {decs, body, pos}) =
             {exp = (), ty = Types.NIL}
@@ -178,7 +181,7 @@ struct
               case Symbol.look (venv, typ) of
                 SOME (Types.ARRAY (typeInArr, uq)) => (
                   if not (areTypesEqual(typeInArr, initType)) 
-                    then (ErrorMsg.error pos ("Initializing expression is incorrect type for array type " ^ Symbol.name typ); {exp = (), ty=Types.BOTTOM}) 
+                    then (ErrorMsg.error pos ("Initializing expression of type " ^ Types.typeToString initType ^ " incorrect type for array of type " ^ Symbol.name typ); {exp = (), ty=Types.BOTTOM}) 
                     else {exp = (), ty=Types.ARRAY (typeInArr, uq)}
                 )
                 | SOME t => (ErrorMsg.error pos ("Tried to initialize array with non-array type " ^ Symbol.name typ); {exp = (), ty=Types.BOTTOM})
@@ -203,7 +206,7 @@ struct
                   in
                     case matching_id
                       of SOME (_, typ) => {exp = (), ty=typ}
-                      | NONE => (ErrorMsg.error pos ("field " ^ Symbol.name id ^ " on record type");
+                      | NONE => (ErrorMsg.error pos ("field " ^ Symbol.name id ^ " not found on record type");
                                 {exp = (), ty = Types.INT}) (* could make this message more useful *)  
                   end
               | _ => (ErrorMsg.error pos ("dot of field " ^ Symbol.name id ^ " on non-record type");

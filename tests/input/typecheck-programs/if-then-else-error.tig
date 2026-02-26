@@ -1,0 +1,3 @@
+(if "hello" then 0 else 1;
+if 1 then "hi" else 5;
+if 1 then "str")

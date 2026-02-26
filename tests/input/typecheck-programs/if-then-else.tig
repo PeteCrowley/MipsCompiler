@@ -1,0 +1,3 @@
+(if 0 then 15 else 20;
+if 0 then "hi" else "j";
+if 0 then ())

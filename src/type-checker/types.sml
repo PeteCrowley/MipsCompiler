@@ -13,4 +13,14 @@ struct
   | ARROW of (ty list) * ty
   | UNIT (* top type *)
   | BOTTOM (* type of impossibility *)
+
+  fun typeToString t = case t of
+    RECORD _ => "Record"
+    | NIL => "Nil"
+    | INT => "int"
+    | STRING => "string"
+    | ARRAY _ => "array"
+    | ARROW _ => "arrow"
+    | UNIT => "unit"
+    | BOTTOM => "bottom"
 end
