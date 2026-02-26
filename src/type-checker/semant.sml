@@ -22,49 +22,72 @@ struct
   fun transDec (venv, tenv, dec) = {venv = venv, tenv = tenv}
   fun transTy (tenv, ty) = Types.BOTTOM
 
-  fun areTypesEqual (t1, t2) =
+  (* Returns true if t1 is a subtype of t2 *)
+  fun isSubtype (t1, t2) =
     let
-      fun areFunctionArgsEqual ([], []) = true
-        | areFunctionArgsEqual (ty1 :: rest1, ty2 :: rest2) =
-            areTypesEqual (ty1, ty2) andalso areFunctionArgsEqual (rest1, rest2)
-        | areFunctionArgsEqual (_, _) = false
+      (* Functions are contravariant over their arguments *)
+      fun functionArgsContravariant ([], []) = true
+        | functionArgsContravariant (ty1 :: rest1, ty2 :: rest2) =
+            isSubtype (ty2, ty1)
+            andalso functionArgsContravariant (rest1, rest2)
+        | functionArgsContravariant (_, _) = false
     in
       case (t1, t2) of
-        (Types.INT, Types.INT) => true
+        (Types.BOTTOM, _) => true
+      | (_, Types.UNIT) => true
+      | (Types.INT, Types.INT) => true
       | (Types.STRING, Types.STRING) => true
       | (Types.NIL, Types.NIL) => true
+      | (Types.NIL, Types.RECORD _) => true
+      | (Types.NIL, Types.ARRAY _) => true
       | (Types.RECORD (_, uq1), Types.RECORD (_, uq2)) => uq1 = uq2
-      | (Types.RECORD (_, _), Types.NIL) => true
-      | (Types.NIL, Types.RECORD (_, _)) => true
       | (Types.ARRAY (_, uq1), Types.ARRAY (_, uq2)) => uq1 = uq2
-      | (Types.ARRAY (_, _), Types.NIL) => true
-      | (Types.NIL, Types.ARRAY (_, _)) => true
-      | (Types.UNIT, Types.UNIT) => true
       | (Types.ARROW (args1, ret1), Types.ARROW (args2, ret2)) =>
-          areTypesEqual (ret1, ret2) andalso areFunctionArgsEqual (args1, args2)
+          isSubtype (ret1, ret2)
+          andalso functionArgsContravariant (args1, args2)
       | _ => false
     end
 
+  (* Returns true if t1 is exactly the same as t2 *)
+  fun areTypesEqual (t1, t2) =
+    isSubtype (t1, t2) andalso isSubtype (t2, t1)
+
+  fun leastUpperBound (Types.BOTTOM, t2) = t2
+    | leastUpperBound (t1, Types.BOTTOM) = t1
+    | leastUpperBound (Types.NIL, Types.RECORD r) = Types.RECORD r
+    | leastUpperBound (Types.RECORD r, Types.NIL) = Types.RECORD r
+    | leastUpperBound (Types.NIL, Types.ARRAY a) = Types.ARRAY a
+    | leastUpperBound (Types.ARRAY a, Types.NIL) = Types.ARRAY a
+    | leastUpperBound (t1, t2) =
+        if areTypesEqual (t1, t2) then t1 else Types.UNIT
+
   fun checkInt ({exp, ty}, pos) =
-    case ty of
-      Types.INT => ()
-    | _ => ErrorMsg.error pos "expected integer"
+    if not (isSubtype (ty, Types.INT)) then
+      ErrorMsg.error pos "expected integer"
+    else
+      ()
 
   fun checkOrderable ({exp = e1, ty = t1}, {exp = e2, ty = t2}, pos) =
-    case (t1, t2) of
-      (Types.INT, Types.INT) => ()
-    | (Types.STRING, Types.STRING) => ()
+    case leastUpperBound (t1, t2) of
+      Types.BOTTOM => ()
+    | Types.INT => ()
+    | Types.STRING => ()
     | _ => ErrorMsg.error pos "expected int * int or str * str"
 
   fun checkEqualable ({exp = e1, ty = t1}, {exp = e2, ty = t2}, pos) =
-    case (t1, t2) of
-      (Types.INT, Types.INT) => ()
-    | (Types.STRING, Types.STRING) => ()
-    | (Types.RECORD (_, uq1), Types.RECORD (_, uq2)) =>
-        if uq1 = uq2 then () else ErrorMsg.error pos "record types do not match"
-    | (Types.RECORD (_, _), Types.NIL) => ()
-    | (Types.NIL, Types.RECORD (_, _)) => ()
-    | _ => ErrorMsg.error pos "expected integer, string, record, or array tuple"
+    if isSubtype (t1, t2) orelse isSubtype (t2, t1) then
+      case leastUpperBound (t1, t2) of
+        Types.BOTTOM => ()
+      | Types.INT => ()
+      | Types.STRING => ()
+      | Types.NIL => ()
+      | Types.RECORD _ => ()
+      | Types.ARRAY _ => ()
+      | _ =>
+          ErrorMsg.error pos "expected integer, string, record, or array tuple"
+    else
+      ErrorMsg.error pos "incompatible types in comparison"
+
 
   fun transExp (venv, tenv) =
     let
@@ -125,7 +148,7 @@ struct
                                let
                                  val {exp = e, ty = expr_ty} = checkExp expr
                                in
-                                 if areTypesEqual (ty, expr_ty) then
+                                 if not (isSubtype (ty, expr_ty)) then
                                    ErrorMsg.error p
                                      ("Field " ^ Symbol.name id
                                       ^ " has incorrect type for record type "
@@ -159,7 +182,7 @@ struct
               val {exp = e1, ty = expr_ty} = checkExp exp
               val {exp = e2, ty = var_ty} = trvar var
             in
-              if areTypesEqual (expr_ty, var_ty) then
+              if isSubtype (expr_ty, var_ty) then
                 ()
               else
                 ErrorMsg.error pos
@@ -176,17 +199,7 @@ struct
 
             in
               checkInt ((checkExp test), pos);
-              if areTypesEqual (then_ty, else_ty) then
-                { exp = ()
-                , ty = then_ty
-                } (* this won't properly handle the case where something is a subtype of another *)
-              else
-                ( ErrorMsg.error pos
-                    ("Type mismatch in if then else statement:\n\tThen type: "
-                     ^ (Types.typeToString then_ty) ^ "\n\tElse type: "
-                     ^ (Types.typeToString else_ty))
-                ; {exp = (), ty = Types.BOTTOM}
-                )
+              {exp = (), ty = leastUpperBound (then_ty, else_ty)}
             end
 
         | checkExp (Absyn.WhileExp {test, body, pos}) =
@@ -226,6 +239,7 @@ struct
               checkInt (checkExp size, pos);
               case Symbol.look (venv, typ) of
                 SOME (Types.ARRAY (typeInArr, uq)) =>
+                  (* Arrays are invariant over their type *)
                   (if not (areTypesEqual (typeInArr, initType)) then
                      ( ErrorMsg.error pos
                          ("Initializing expression of type "
