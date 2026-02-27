@@ -192,6 +192,7 @@ and functionArgsContravariant ([], []) = true
                   "Incompatible type between variable and expression";
               {exp = (), ty = Types.UNIT}
             end
+
         | checkExp (Absyn.IfExp {test, then', else', pos}) =
             let
               val {exp = _, ty = then_ty} = checkExp then'
@@ -199,7 +200,6 @@ and functionArgsContravariant ([], []) = true
                 case else' of
                   SOME else_exp => checkExp else_exp
                 | NONE => {exp = (), ty = Types.UNIT}
-
             in
               checkInt ((checkExp test), pos);
               {exp = (), ty = leastUpperBound (then_ty, else_ty)}
@@ -230,7 +230,7 @@ and functionArgsContravariant ([], []) = true
                 {exp = _, ty = Types.UNIT} => ()
               | _ =>
                   ErrorMsg.error pos
-                    "Body of while loop produces non-unit value";
+                    "Body of for loop produces non-unit value";
               {exp = (), ty = Types.UNIT}
             end
         | checkExp (Absyn.BreakExp _) = {exp = (), ty = Types.BOTTOM}

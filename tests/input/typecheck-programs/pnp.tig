@@ -1,0 +1,2 @@
+/* check strings comparable */
+"p" < "np"

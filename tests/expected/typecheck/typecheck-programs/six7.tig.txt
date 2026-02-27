@@ -1,0 +1,1 @@
+tests/input/typecheck-programs/six7.tig:0.1:expected integer

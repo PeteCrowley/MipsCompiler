@@ -1,0 +1,7 @@
+/* let
+    function debug_fun(s: string, i: int) : int = 5
+    var debug_str := "debug_str"
+    var debug_int := 5
+in */
+    debug_fun(debug_int, debug_str)
+/* end */

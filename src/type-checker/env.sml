@@ -1,7 +1,6 @@
 structure Env:
 sig
   type ty
-  (* should we separate functions like appel or use the Arrow type like Drew? *)
   type enventry = ty
   val base_tenv: ty Symbol.table (*predefined types*)
   val base_venv: enventry Symbol.table (*predefined functions*)
@@ -15,8 +14,15 @@ struct
     in table
     end
   val base_venv: enventry Symbol.table =
-    let val table = Symbol.empty
+    let
+      val table = Symbol.empty
+      (*TODO: debug entries--remove after decs are working*)
+      val debug_fun = Types.ARROW ([Types.STRING, Types.INT], Types.INT)
     (* then here add all stdlib functions in appendix a*)
-    in table
+    in
+      (*TODO: debug entries--remove after decs are working*)
+      Symbol.enter (table, Symbol.symbol "debug_int", Types.INT);
+      Symbol.enter (table, Symbol.symbol "debug_str", Types.STRING);
+      Symbol.enter (table, Symbol.symbol "debug_fun", debug_fun)
     end
 end
