@@ -25,12 +25,6 @@ struct
   (* Returns true if t1 is a subtype of t2 *)
   fun isSubtype (t1, t2) =
     let
-      (* Functions are contravariant over their arguments *)
-      fun functionArgsContravariant ([], []) = true
-        | functionArgsContravariant (ty1 :: rest1, ty2 :: rest2) =
-            isSubtype (ty2, ty1)
-            andalso functionArgsContravariant (rest1, rest2)
-        | functionArgsContravariant (_, _) = false
     in
       case (t1, t2) of
         (Types.BOTTOM, _) => true
@@ -47,6 +41,12 @@ struct
           andalso functionArgsContravariant (args1, args2)
       | _ => false
     end
+      (* Functions are contravariant over their arguments *)
+and functionArgsContravariant ([], []) = true
+    | functionArgsContravariant (ty1 :: rest1, ty2 :: rest2) =
+        isSubtype (ty2, ty1)
+        andalso functionArgsContravariant (rest1, rest2)
+    | functionArgsContravariant (_, _) = false
 
   (* Returns true if t1 is exactly the same as t2 *)
   fun areTypesEqual (t1, t2) =
@@ -98,6 +98,8 @@ struct
         | checkExp Absyn.NilExp = {exp = (), ty = Types.NIL}
         | checkExp (Absyn.IntExp _) = {exp = (), ty = Types.INT}
         | checkExp (Absyn.StringExp (_, _)) = {exp = (), ty = Types.STRING}
+
+        (*TODO: implement function call checking*)
         | checkExp
             (Absyn.CallExp
                {func: Absyn.symbol, args: Absyn.exp list, pos: Absyn.pos}) =
@@ -177,6 +179,7 @@ struct
              | [(expr, pos)] => checkExp expr
              | (expr, pos) :: rest =>
                  (checkExp expr; checkExp (Absyn.SeqExp rest)))
+
         | checkExp (Absyn.AssignExp {var, exp, pos}) =
             let
               val {exp = e1, ty = expr_ty} = checkExp exp
