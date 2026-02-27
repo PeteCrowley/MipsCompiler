@@ -100,14 +100,14 @@ and functionArgsContravariant ([], []) = true
         | checkExp (Absyn.StringExp (_, _)) = {exp = (), ty = Types.STRING}
 
         (*TODO: implement function call checking*)
-        | checkExp
-            (Absyn.CallExp {func: Absyn.symbol, args: Absyn.exp list, pos: Absyn.pos}) =
-            (*check that func actually exists as a function in our tenv*)
-              (case Symbol.look (tenv, func) of SOME (Types.ARROW (fargs, ret)) =>
+        | checkExp (Absyn.CallExp {func: Absyn.symbol, args: Absyn.exp list, pos: Absyn.pos}) =
+            (*check that func actually exists as a function in our venv*)
+              (case Symbol.look (venv, func) of SOME (Types.ARROW (fargs, ret)) =>
                 let 
                   fun arg_to_ty (arg: Absyn.exp) = #ty (checkExp arg)
-                  val arg_tylist = foldl (fn (arg, arg_tylist) => (arg_to_ty
-                  arg)::arg_tylist) ([]: Types.ty list) args
+                  (*convert tylist backwards and then reverse*)
+                  val arg_tylist = rev (foldl (fn (arg, arg_tylist) => (arg_to_ty
+                  arg)::arg_tylist) ([]: Types.ty list) args)
                 in
                   (*check that args match arrow_type args.*)
                   if functionArgsContravariant(arg_tylist, fargs)
@@ -115,7 +115,8 @@ and functionArgsContravariant ([], []) = true
                   then {exp = (), ty = ret}
                   else (ErrorMsg.error pos "Function args do not match"; {exp = (), ty = Types.NIL})
                 end
-              | _ => (ErrorMsg.error pos "Undefined function"; {exp = (), ty = Types.NIL})
+              | _ => (ErrorMsg.error pos ("Undefined function " ^ (Symbol.name
+              func)); {exp = (), ty = Types.NIL})
               )
 
         | checkExp (Absyn.OpExp {left, oper, right, pos}) =
@@ -200,7 +201,8 @@ and functionArgsContravariant ([], []) = true
                 ()
               else
                 ErrorMsg.error pos
-                  "Incompatible type between variable and expression";
+                  ("Cannot assign " ^ Types.typeToString expr_ty ^ " to " ^
+                  Types.typeToString var_ty);
               {exp = (), ty = Types.UNIT}
             end
 

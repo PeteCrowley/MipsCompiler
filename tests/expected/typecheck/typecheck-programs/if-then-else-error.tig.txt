@@ -1,0 +1,1 @@
+tests/input/typecheck-programs/if-then-else-error.tig:~1.2:expected integer

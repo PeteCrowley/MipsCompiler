@@ -1,0 +1,1 @@
+tests/input/typecheck-programs/bad-assign.tig:~1.5:Cannot assign string to int
