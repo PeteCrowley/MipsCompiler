@@ -19,7 +19,6 @@ struct
 
 
   fun transVar (venv, tenv, var) = {exp = (), ty = Types.BOTTOM}
-  fun transDec (venv, tenv, dec) = {venv = venv, tenv = tenv}
   fun transTy (tenv, ty) = Types.BOTTOM
 
   (* Returns true if t1 is a subtype of t2 *)
@@ -88,8 +87,31 @@ and functionArgsContravariant ([], []) = true
     else
       ErrorMsg.error pos "incompatible types in comparison"
 
+  fun transDec (venv, tenv, Absyn.VarDec {name, escape, typ, init, pos}) =
+      let
+        val {exp = e, ty = exp_ty} = transExp (venv, tenv) init
+        val type_annotation = case typ of 
+          SOME (t_symbol, _) => (case Symbol.look (tenv, t_symbol) of
+                                  SOME t => SOME t
+                                  | NONE => (ErrorMsg.error pos ("Undefined type " ^ Symbol.name t_symbol); NONE))
+          | NONE => NONE
 
-  fun transExp (venv, tenv) =
+      in
+        (* Does not handle duplicate declarations since I'm not 100% the expected behavior *)
+        case type_annotation of
+          SOME t => if not (isSubtype (exp_ty, t))
+              then (ErrorMsg.error pos ("Type mismatch between for var dec " ^ Symbol.name name ^ " between type annotation " 
+                ^ Types.typeToString t ^ " and init expr of type " ^ Types.typeToString exp_ty);
+                {tenv = tenv, venv = Symbol.enter (venv, name, Types.BOTTOM)})
+              else {tenv = tenv, venv = Symbol.enter (venv, name, t)}
+          | NONE => if areTypesEqual(exp_ty, Types.NIL) 
+                      then (ErrorMsg.error pos ("Init expression for nil must have type annotation"); 
+                        {tenv = tenv, venv = Symbol.enter (venv, name, Types.BOTTOM)})
+                      else {tenv = tenv, venv = Symbol.enter (venv, name, exp_ty)}
+      end
+    | transDec(venv, tenv, _) = {venv = venv, tenv = tenv}
+
+  and transExp (venv, tenv) =
     let
       fun checkExp (Absyn.VarExp var) =
             let val {exp = e, ty = ty} = trvar var
