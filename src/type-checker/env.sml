@@ -18,11 +18,12 @@ struct
       val table = Symbol.empty
       (*TODO: debug entries--remove after decs are working*)
       val debug_fun = Types.ARROW ([Types.STRING, Types.INT], Types.INT)
+      val table = Symbol.enter (table, Symbol.symbol "debug_int", Types.INT)
+      val table = Symbol.enter (table, Symbol.symbol "debug_str", Types.STRING)
+      val fun_symbol = Symbol.symbol "debug_fun"
+      val table = Symbol.enter (table, fun_symbol, debug_fun)
     (* then here add all stdlib functions in appendix a*)
     in
-      (*TODO: debug entries--remove after decs are working*)
-      Symbol.enter (table, Symbol.symbol "debug_int", Types.INT);
-      Symbol.enter (table, Symbol.symbol "debug_str", Types.STRING);
-      Symbol.enter (table, Symbol.symbol "debug_fun", debug_fun)
+      table
     end
 end
