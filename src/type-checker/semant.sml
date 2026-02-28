@@ -269,7 +269,13 @@ and functionArgsContravariant ([], []) = true
               {exp = (), ty = Types.UNIT}
             end
         | checkExp (Absyn.BreakExp _) = {exp = (), ty = Types.BOTTOM}
-        | checkExp (Absyn.LetExp {decs, body, pos}) = {exp = (), ty = Types.NIL}
+        | checkExp (Absyn.LetExp {decs, body, pos}) = 
+            let
+              fun processDec (dec, {venv = v, tenv = t}) = transDec(v, t, dec)
+              val {venv = new_venv, tenv = new_tenv} = foldl processDec {venv=venv, tenv=tenv} decs
+            in
+              transExp (new_venv, new_tenv) body
+            end
         | checkExp (Absyn.ArrayExp {typ, size, init, pos}) =
             let
               val {exp = _, ty = initType} = checkExp init

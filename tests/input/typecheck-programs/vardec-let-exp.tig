@@ -1,0 +1,9 @@
+let
+    var x := 5
+    var y: int := 10
+    var a := "hello"
+    var b: string := "world"
+in
+    (x + y;
+    concat(a, b))
+end
