@@ -1,0 +1,10 @@
+let
+    type myInt = int
+    type person = {name: string, age: myInt}
+    type classMember = {human: person, grade: int}
+    var myPerson := person{name="Pete", age=20}
+    var myCM := classMember {human=myPerson, grade=90}
+    var otherCM := classMember {human=person{name="Will", age=21}, grade=105}
+in
+    myCM
+end

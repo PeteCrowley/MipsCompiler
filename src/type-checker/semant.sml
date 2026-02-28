@@ -38,9 +38,9 @@ struct
     let
       fun f ({escape, name, pos, typ}, acc) = 
         let
-          val ty = case Symbol.look (tenv, name) of
+          val ty = case Symbol.look (tenv, typ) of
                 SOME t => t
-                | NONE => (ErrorMsg.error pos ("undefined type " ^ Symbol.name name); Types.BOTTOM)
+                | NONE => (ErrorMsg.error pos ("undefined type " ^ Symbol.name typ); Types.BOTTOM)
         in
           (name, ty)::acc
         end
@@ -230,8 +230,8 @@ and functionArgsContravariant ([], []) = true
                                end
                            | NONE =>
                                ErrorMsg.error pos
-                                 ("Unrecognized field " ^ Symbol.name id
-                                  ^ " on record type " ^ Symbol.name typ)
+                                 ("Field " ^ Symbol.name id
+                                  ^ " not found on record type " ^ Symbol.name typ)
                          ; checkRecordFields (providedFields, rest)
                          )
                  in
