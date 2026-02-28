@@ -135,7 +135,7 @@ and functionArgsContravariant ([], []) = true
                   if functionArgsContravariant(arg_tylist, fargs)
                   (*return return type of function*)
                   then {exp = (), ty = ret}
-                  else (ErrorMsg.error pos "Function args do not match"; {exp = (), ty = Types.NIL})
+                  else (ErrorMsg.error pos ("Function args do not match for function " ^ Symbol.name func); {exp = (), ty = Types.NIL})
                 end
               | _ => (ErrorMsg.error pos ("Undefined function " ^ (Symbol.name
               func)); {exp = (), ty = Types.NIL})

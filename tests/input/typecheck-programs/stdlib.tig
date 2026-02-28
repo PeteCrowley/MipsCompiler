@@ -1,0 +1,18 @@
+let
+    var hi := "hello"
+    var wld := "world"
+    var c: string := getchar()
+    var k: int := ord(hi)
+    var o: string := chr(k)
+    var s: int := size(hi)
+    var ss: string := substring(hi, 1, 3)
+    var hi_wld: string := concat(hi, wld)
+    var l: int := not(s)
+
+in
+    (
+        print(hi);
+        flush();
+        exit(1)
+    )
+end
