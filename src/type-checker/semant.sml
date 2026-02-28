@@ -145,7 +145,38 @@ and functionArgsContravariant ([], []) = true
       in
         {venv=venv, tenv=foldl processTyDec tenv dec_list}
       end
-    | transDec(venv, tenv, Absyn.FunctionDec dec_list) = {venv = venv, tenv = tenv}
+    | transDec(venv, tenv, Absyn.FunctionDec dec_list) = 
+      let
+        fun processParam ({name, escape, typ, pos}, (venv', acc)) =
+          let
+            val paramType = case Symbol.look (tenv, typ) of
+              SOME t => t
+              | NONE => (ErrorMsg.error pos ("Undefined type " ^ Symbol.name typ ^ " for field " ^ Symbol.name name); Types.BOTTOM)
+          in
+            (Symbol.enter (venv', name, paramType), paramType::acc)
+          end
+        fun processFunDec ({body, name, params, pos, result}, venv') = 
+          let
+            val (functionVenv, fieldTypeList) = foldr processParam (venv', []) params
+            val returnType = case result of 
+              SOME (t_symbol, _) => (case Symbol.look (tenv, t_symbol) of
+                                      SOME t => SOME t
+                                    | NONE => (ErrorMsg.error pos ("Undefined type " ^ Symbol.name t_symbol); NONE))
+              | NONE => NONE
+            (* will have to do a lot more work for recursion / mutual recursion here *)
+            val {exp = e, ty= bodyType} = transExp (functionVenv, tenv) body
+          in
+            case returnType of
+              SOME t => if not (isSubtype (bodyType, t))
+                  then (ErrorMsg.error pos ("Type mismatch between for function dec " ^ Symbol.name name ^ " between type annotation " 
+                    ^ Types.typeToString t ^ " and body of type " ^ Types.typeToString bodyType);
+                    Symbol.enter (venv', name, Types.ARROW (fieldTypeList, Types.BOTTOM)))
+                  else Symbol.enter (venv', name, Types.ARROW(fieldTypeList, t))
+              | NONE => Symbol.enter (venv', name, Types.ARROW(fieldTypeList, bodyType))
+          end
+      in
+        {tenv=tenv, venv=foldl processFunDec venv dec_list}
+      end
 
   and transExp (venv, tenv) =
     let
@@ -320,7 +351,7 @@ and functionArgsContravariant ([], []) = true
               case Symbol.look (venv, typ) of
                 SOME (Types.ARRAY (typeInArr, uq)) =>
                   (* Arrays are invariant over their type *)
-                  (if not (areTypesEqual (typeInArr, initType)) then
+                  (if not (isSubtype (initType, typeInArr)) then
                      ( ErrorMsg.error pos
                          ("Initializing expression of type "
                           ^ Types.typeToString initType

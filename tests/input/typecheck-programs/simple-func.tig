@@ -1,0 +1,6 @@
+let
+    function add3 (x:int) = x + 3
+    function add5 (x:int): int = x + 5
+in
+    add3(add5(2))
+end
