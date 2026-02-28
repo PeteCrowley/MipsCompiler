@@ -19,7 +19,36 @@ struct
 
 
   fun transVar (venv, tenv, var) = {exp = (), ty = Types.BOTTOM}
-  fun transTy (tenv, ty) = Types.BOTTOM
+
+  fun transTy (tenv, Absyn.NameTy (name, pos)) = (
+    case Symbol.look (tenv, name) of
+      SOME t => t
+      | NONE => (ErrorMsg.error pos ("undefined type " ^ Symbol.name name); Types.BOTTOM)
+  )
+
+  | transTy (tenv, Absyn.ArrayTy (name, pos)) = 
+    let
+      val typeInArray = case Symbol.look (tenv, name) of
+                    SOME t => t
+                    | NONE => (ErrorMsg.error pos ("undefined type " ^ Symbol.name name); Types.BOTTOM)
+    in
+      Types.ARRAY(typeInArray, ref ())
+    end
+  | transTy (tenv, Absyn.RecordTy fieldList) = 
+    let
+      fun f ({escape, name, pos, typ}, acc) = 
+        let
+          val ty = case Symbol.look (tenv, name) of
+                SOME t => t
+                | NONE => (ErrorMsg.error pos ("undefined type " ^ Symbol.name name); Types.BOTTOM)
+        in
+          (name, ty)::acc
+        end
+      val recFields = foldl f [] fieldList
+      fun recFunction () = recFields
+    in
+      Types.RECORD(recFunction, ref ())
+    end
 
   (* Returns true if t1 is a subtype of t2 *)
   fun isSubtype (t1, t2) =
@@ -109,7 +138,14 @@ and functionArgsContravariant ([], []) = true
                         {tenv = tenv, venv = Symbol.enter (venv, name, Types.BOTTOM)})
                       else {tenv = tenv, venv = Symbol.enter (venv, name, exp_ty)}
       end
-    | transDec(venv, tenv, _) = {venv = venv, tenv = tenv}
+      (* Just need to make this handle recursive type defs *)
+    | transDec(venv, tenv, Absyn.TypeDec dec_list) = 
+      let
+        fun processTyDec ({name, ty, pos}, tenv') = Symbol.enter(tenv',name,transTy(tenv', ty))
+      in
+        {venv=venv, tenv=foldl processTyDec tenv dec_list}
+      end
+    | transDec(venv, tenv, Absyn.FunctionDec dec_list) = {venv = venv, tenv = tenv}
 
   and transExp (venv, tenv) =
     let
