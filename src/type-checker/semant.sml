@@ -20,40 +20,49 @@ struct
 
   fun transVar (venv, tenv, var) = {exp = (), ty = Types.BOTTOM}
 
-  fun transTy (tenv, Absyn.NameTy (name, pos)) = (
-    case Symbol.look (tenv, name) of
-      SOME t => t
-      | NONE => (ErrorMsg.error pos ("undefined type " ^ Symbol.name name); Types.BOTTOM)
-  )
+  fun transTy (tenv, Absyn.NameTy (name, pos)) =
+        (case Symbol.look (tenv, name) of
+           SOME t => t
+         | NONE =>
+             ( ErrorMsg.error pos ("undefined type " ^ Symbol.name name)
+             ; Types.BOTTOM
+             ))
 
-  | transTy (tenv, Absyn.ArrayTy (name, pos)) = 
-    let
-      val typeInArray = case Symbol.look (tenv, name) of
-                    SOME t => t
-                    | NONE => (ErrorMsg.error pos ("undefined type " ^ Symbol.name name); Types.BOTTOM)
-    in
-      Types.ARRAY(typeInArray, ref ())
-    end
-  | transTy (tenv, Absyn.RecordTy fieldList) = 
-    let
-      fun f ({escape, name, pos, typ}, acc) = 
+    | transTy (tenv, Absyn.ArrayTy (name, pos)) =
         let
-          val ty = case Symbol.look (tenv, typ) of
-                SOME t => t
-                | NONE => (ErrorMsg.error pos ("undefined type " ^ Symbol.name typ); Types.BOTTOM)
+          val typeInArray =
+            case Symbol.look (tenv, name) of
+              SOME t => t
+            | NONE =>
+                ( ErrorMsg.error pos ("undefined type " ^ Symbol.name name)
+                ; Types.BOTTOM
+                )
         in
-          (name, ty)::acc
+          Types.ARRAY (typeInArray, ref ())
         end
-      val recFields = foldl f [] fieldList
-      fun recFunction () = recFields
-    in
-      Types.RECORD(recFunction, ref ())
-    end
+    | transTy (tenv, Absyn.RecordTy fieldList) =
+        let
+          fun f ({escape, name, pos, typ}, acc) =
+            let
+              val ty =
+                case Symbol.look (tenv, typ) of
+                  SOME t => t
+                | NONE =>
+                    ( ErrorMsg.error pos ("undefined type " ^ Symbol.name typ)
+                    ; Types.BOTTOM
+                    )
+            in
+              (name, ty) :: acc
+            end
+          val recFields = foldl f [] fieldList
+          fun recFunction () = recFields
+        in
+          Types.RECORD (recFunction, ref ())
+        end
 
   (* Returns true if t1 is a subtype of t2 *)
   fun isSubtype (t1, t2) =
-    let
-    in
+    let in
       case (t1, t2) of
         (Types.BOTTOM, _) => true
       | (_, Types.UNIT) => true
@@ -70,11 +79,10 @@ struct
           andalso functionArgsContravariant (args1, args2)
       | _ => false
     end
-      (* Functions are contravariant over their arguments *)
-and functionArgsContravariant ([], []) = true
+  (* Functions are contravariant over their arguments *)
+  and functionArgsContravariant ([], []) = true
     | functionArgsContravariant (ty1 :: rest1, ty2 :: rest2) =
-        isSubtype (ty2, ty1)
-        andalso functionArgsContravariant (rest1, rest2)
+        isSubtype (ty2, ty1) andalso functionArgsContravariant (rest1, rest2)
     | functionArgsContravariant (_, _) = false
 
   (* Returns true if t1 is exactly the same as t2 *)
@@ -90,10 +98,18 @@ and functionArgsContravariant ([], []) = true
     | leastUpperBound (t1, t2) =
         if areTypesEqual (t1, t2) then t1 else Types.UNIT
 
-  fun isTypeMismatch (t1, t2) = 
-    not (isSubtype(t1, t2) orelse isSubtype(t2, t1)) 
-      orelse (areTypesEqual(t1, Types.UNIT) andalso not (areTypesEqual(t2, Types.UNIT) orelse areTypesEqual(t2, Types.BOTTOM)))
-      orelse (areTypesEqual(t2, Types.UNIT) andalso not (areTypesEqual(t1, Types.UNIT) orelse areTypesEqual(t1, Types.BOTTOM)))
+  fun isTypeMismatch (t1, t2) =
+    not (isSubtype (t1, t2) orelse isSubtype (t2, t1))
+    orelse
+    (areTypesEqual (t1, Types.UNIT)
+     andalso
+     not
+       (areTypesEqual (t2, Types.UNIT) orelse areTypesEqual (t2, Types.BOTTOM)))
+    orelse
+    (areTypesEqual (t2, Types.UNIT)
+     andalso
+     not
+       (areTypesEqual (t1, Types.UNIT) orelse areTypesEqual (t1, Types.BOTTOM)))
 
   fun checkInt ({exp, ty}, pos) =
     if not (isSubtype (ty, Types.INT)) then
@@ -123,66 +139,110 @@ and functionArgsContravariant ([], []) = true
       ErrorMsg.error pos "incompatible types in comparison"
 
   fun transDec (venv, tenv, Absyn.VarDec {name, escape, typ, init, pos}) =
-      let
-        val {exp = e, ty = exp_ty} = transExp (venv, tenv) init
-        val type_annotation = case typ of 
-          SOME (t_symbol, _) => (case Symbol.look (tenv, t_symbol) of
-                                  SOME t => SOME t
-                                  | NONE => (ErrorMsg.error pos ("Undefined type " ^ Symbol.name t_symbol); NONE))
-          | NONE => NONE
+        let
+          val {exp = e, ty = exp_ty} = transExp (venv, tenv) init
+          val type_annotation =
+            case typ of
+              SOME (t_symbol, _) =>
+                (case Symbol.look (tenv, t_symbol) of
+                   SOME t => SOME t
+                 | NONE =>
+                     ( ErrorMsg.error pos
+                         ("Undefined type " ^ Symbol.name t_symbol)
+                     ; NONE
+                     ))
+            | NONE => NONE
 
-      in
-        (* Does not handle duplicate declarations since I'm not 100% the expected behavior *)
-        case type_annotation of
-          SOME t => if not (isSubtype (exp_ty, t))
-              then (ErrorMsg.error pos ("Type mismatch between for var dec " ^ Symbol.name name ^ " between type annotation " 
-                ^ Types.typeToString t ^ " and init expr of type " ^ Types.typeToString exp_ty);
-                {tenv = tenv, venv = Symbol.enter (venv, name, Types.BOTTOM)})
-              else {tenv = tenv, venv = Symbol.enter (venv, name, t)}
-          | NONE => if areTypesEqual(exp_ty, Types.NIL) 
-                      then (ErrorMsg.error pos ("Init expression for nil must have type annotation"); 
-                        {tenv = tenv, venv = Symbol.enter (venv, name, Types.BOTTOM)})
-                      else {tenv = tenv, venv = Symbol.enter (venv, name, exp_ty)}
-      end
-      (* Just need to make this handle recursive type defs *)
-    | transDec(venv, tenv, Absyn.TypeDec dec_list) = 
-      let
-        fun processTyDec ({name, ty, pos}, tenv') = Symbol.enter(tenv',name,transTy(tenv', ty))
-      in
-        {venv=venv, tenv=foldl processTyDec tenv dec_list}
-      end
-    | transDec(venv, tenv, Absyn.FunctionDec dec_list) = 
-      let
-        fun processParam ({name, escape, typ, pos}, (venv', acc)) =
-          let
-            val paramType = case Symbol.look (tenv, typ) of
-              SOME t => t
-              | NONE => (ErrorMsg.error pos ("Undefined type " ^ Symbol.name typ ^ " for field " ^ Symbol.name name); Types.BOTTOM)
-          in
-            (Symbol.enter (venv', name, paramType), paramType::acc)
-          end
-        fun processFunDec ({body, name, params, pos, result}, venv') = 
-          let
-            val (functionVenv, fieldTypeList) = foldr processParam (venv', []) params
-            val returnType = case result of 
-              SOME (t_symbol, _) => (case Symbol.look (tenv, t_symbol) of
-                                      SOME t => t
-                                    | NONE => (ErrorMsg.error pos ("Undefined type " ^ Symbol.name t_symbol); Types.BOTTOM))
-              | NONE => Types.UNIT
-            (* will have to do a lot more work for recursion / mutual recursion here *)
-            val functionVenv = Symbol.enter (functionVenv, name, Types.ARROW(fieldTypeList, returnType))
-            val {exp = e, ty= bodyType} = transExp (functionVenv, tenv) body
-          in
-            if not (isSubtype (bodyType, returnType))
-              orelse (areTypesEqual(returnType, Types.UNIT) andalso not (areTypesEqual(bodyType, Types.UNIT) orelse areTypesEqual(bodyType, Types.BOTTOM)))
-              then (ErrorMsg.error pos ("Type mismatch between for function dec " ^ Symbol.name name ^ " between type annotation " 
-                ^ Types.typeToString returnType ^ " and body of type " ^ Types.typeToString bodyType);
-                Symbol.enter (venv', name, Types.ARROW (fieldTypeList, Types.BOTTOM)))
-              else Symbol.enter (venv', name, Types.ARROW(fieldTypeList, returnType))
-          end
-      in
-        {tenv=tenv, venv=foldl processFunDec venv dec_list}
-      end
+        in
+          (* Does not handle duplicate declarations since I'm not 100% the expected behavior *)
+          case type_annotation of
+            SOME t =>
+              if not (isSubtype (exp_ty, t)) then
+                ( ErrorMsg.error pos
+                    ("Type mismatch between for var dec " ^ Symbol.name name
+                     ^ " between type annotation " ^ Types.typeToString t
+                     ^ " and init expr of type " ^ Types.typeToString exp_ty)
+                ; {tenv = tenv, venv = Symbol.enter (venv, name, Types.BOTTOM)}
+                )
+              else
+                {tenv = tenv, venv = Symbol.enter (venv, name, t)}
+          | NONE =>
+              if areTypesEqual (exp_ty, Types.NIL) then
+                ( ErrorMsg.error pos
+                    ("Init expression for nil must have type annotation")
+                ; {tenv = tenv, venv = Symbol.enter (venv, name, Types.BOTTOM)}
+                )
+              else
+                {tenv = tenv, venv = Symbol.enter (venv, name, exp_ty)}
+        end
+    (* Just need to make this handle recursive type defs *)
+    | transDec (venv, tenv, Absyn.TypeDec dec_list) =
+        let
+          fun processTyDec ({name, ty, pos}, tenv') =
+            Symbol.enter (tenv', name, transTy (tenv', ty))
+        in
+          {venv = venv, tenv = foldl processTyDec tenv dec_list}
+        end
+    | transDec (venv, tenv, Absyn.FunctionDec dec_list) =
+        let
+          fun processParam ({name, escape, typ, pos}, (venv', acc)) =
+            let
+              val paramType =
+                case Symbol.look (tenv, typ) of
+                  SOME t => t
+                | NONE =>
+                    ( ErrorMsg.error pos
+                        ("Undefined type " ^ Symbol.name typ ^ " for field "
+                         ^ Symbol.name name)
+                    ; Types.BOTTOM
+                    )
+            in
+              (Symbol.enter (venv', name, paramType), paramType :: acc)
+            end
+          fun processFunDec ({body, name, params, pos, result}, venv') =
+            let
+              val (functionVenv, fieldTypeList) =
+                foldr processParam (venv', []) params
+              val returnType =
+                case result of
+                  SOME (t_symbol, _) =>
+                    (case Symbol.look (tenv, t_symbol) of
+                       SOME t => t
+                     | NONE =>
+                         ( ErrorMsg.error pos
+                             ("Undefined type " ^ Symbol.name t_symbol)
+                         ; Types.BOTTOM
+                         ))
+                | NONE => Types.UNIT
+              (* will have to do a lot more work for recursion / mutual recursion here *)
+              val functionVenv = Symbol.enter
+                (functionVenv, name, Types.ARROW (fieldTypeList, returnType))
+              val {exp = e, ty = bodyType} = transExp (functionVenv, tenv) body
+            in
+              if
+                not (isSubtype (bodyType, returnType))
+                orelse
+                (areTypesEqual (returnType, Types.UNIT)
+                 andalso
+                 not
+                   (areTypesEqual (bodyType, Types.UNIT)
+                    orelse areTypesEqual (bodyType, Types.BOTTOM)))
+              then
+                ( ErrorMsg.error pos
+                    ("Type mismatch between for function dec "
+                     ^ Symbol.name name ^ " between type annotation "
+                     ^ Types.typeToString returnType ^ " and body of type "
+                     ^ Types.typeToString bodyType)
+                ; Symbol.enter
+                    (venv', name, Types.ARROW (fieldTypeList, Types.BOTTOM))
+                )
+              else
+                Symbol.enter
+                  (venv', name, Types.ARROW (fieldTypeList, returnType))
+            end
+        in
+          {tenv = tenv, venv = foldl processFunDec venv dec_list}
+        end
 
   and transExp (venv, tenv) =
     let
@@ -195,24 +255,36 @@ and functionArgsContravariant ([], []) = true
         | checkExp (Absyn.StringExp (_, _)) = {exp = (), ty = Types.STRING}
 
         (*TODO: implement function call checking*)
-        | checkExp (Absyn.CallExp {func: Absyn.symbol, args: Absyn.exp list, pos: Absyn.pos}) =
+        | checkExp
+            (Absyn.CallExp
+               {func: Absyn.symbol, args: Absyn.exp list, pos: Absyn.pos}) =
             (*check that func actually exists as a function in our venv*)
-              (case Symbol.look (venv, func) of SOME (Types.ARROW (fargs, ret)) =>
-                let 
-                  fun arg_to_ty (arg: Absyn.exp) = #ty (checkExp arg)
-                  (*convert tylist backwards and then reverse*)
-                  val arg_tylist = rev (foldl (fn (arg, arg_tylist) => (arg_to_ty
-                  arg)::arg_tylist) ([]: Types.ty list) args)
-                in
-                  (*check that args match arrow_type args.*)
-                  if functionArgsContravariant(arg_tylist, fargs)
-                  (*return return type of function*)
-                  then {exp = (), ty = ret}
-                  else (ErrorMsg.error pos ("Function args do not match for function " ^ Symbol.name func); {exp = (), ty = Types.NIL})
-                end
-              | _ => (ErrorMsg.error pos ("Undefined function " ^ (Symbol.name
-              func)); {exp = (), ty = Types.NIL})
-              )
+            (case Symbol.look (venv, func) of
+               SOME (Types.ARROW (fargs, ret)) =>
+                 let
+                   fun arg_to_ty (arg: Absyn.exp) =
+                     #ty (checkExp arg)
+                   (*convert tylist backwards and then reverse*)
+                   val arg_tylist = rev
+                     (foldl
+                        (fn (arg, arg_tylist) => (arg_to_ty arg) :: arg_tylist)
+                        ([] : Types.ty list) args)
+                 in
+                   (*check that args match arrow_type args.*)
+                   if functionArgsContravariant (arg_tylist, fargs) (*return return type of function*) then
+                     {exp = (), ty = ret}
+                   else
+                     ( ErrorMsg.error pos
+                         ("Function args do not match for function "
+                          ^ Symbol.name func)
+                     ; {exp = (), ty = Types.NIL}
+                     )
+                 end
+             | _ =>
+                 ( ErrorMsg.error pos
+                     ("Undefined function " ^ (Symbol.name func))
+                 ; {exp = (), ty = Types.NIL}
+                 ))
 
         | checkExp (Absyn.OpExp {left, oper, right, pos}) =
             ( case oper of
@@ -268,7 +340,8 @@ and functionArgsContravariant ([], []) = true
                            | NONE =>
                                ErrorMsg.error pos
                                  ("Field " ^ Symbol.name id
-                                  ^ " not found on record type " ^ Symbol.name typ)
+                                  ^ " not found on record type "
+                                  ^ Symbol.name typ)
                          ; checkRecordFields (providedFields, rest)
                          )
                  in
@@ -293,14 +366,16 @@ and functionArgsContravariant ([], []) = true
               val {exp = e2, ty = var_ty} = trvar var
             in
               case var_ty of
-                Types.READ_ONLY_INT => ErrorMsg.error pos ("Tried to assign value to read only integer")
-                | _ => ();
+                Types.READ_ONLY_INT =>
+                  ErrorMsg.error pos
+                    ("Tried to assign value to read only integer")
+              | _ => ();
               if isSubtype (expr_ty, var_ty) then
                 ()
               else
                 ErrorMsg.error pos
-                  ("Cannot assign " ^ Types.typeToString expr_ty ^ " to " ^
-                  Types.typeToString var_ty);
+                  ("Cannot assign " ^ Types.typeToString expr_ty ^ " to "
+                   ^ Types.typeToString var_ty);
               {exp = (), ty = Types.UNIT}
             end
 
@@ -313,10 +388,13 @@ and functionArgsContravariant ([], []) = true
                 | NONE => {exp = (), ty = Types.UNIT}
             in
               checkInt ((checkExp test), pos);
-              if isTypeMismatch(then_ty, else_ty)
-                then ErrorMsg.error pos ("Type mismatch in if then else statement:\n \tthen type: " ^
-                                      Types.typeToString then_ty ^ "\n\telse type: " ^ Types.typeToString else_ty)
-                else ();
+              if isTypeMismatch (then_ty, else_ty) then
+                ErrorMsg.error pos
+                  ("Type mismatch in if then else statement:\n \tthen type: "
+                   ^ Types.typeToString then_ty ^ "\n\telse type: "
+                   ^ Types.typeToString else_ty)
+              else
+                ();
               {exp = (), ty = leastUpperBound (then_ty, else_ty)}
             end
 
@@ -344,15 +422,15 @@ and functionArgsContravariant ([], []) = true
               case transExp (newVenv, tenv) body of
                 {exp = _, ty = Types.UNIT} => ()
               | _ =>
-                  ErrorMsg.error pos
-                    "Body of for loop produces non-unit value";
+                  ErrorMsg.error pos "Body of for loop produces non-unit value";
               {exp = (), ty = Types.UNIT}
             end
         | checkExp (Absyn.BreakExp _) = {exp = (), ty = Types.BOTTOM}
-        | checkExp (Absyn.LetExp {decs, body, pos}) = 
+        | checkExp (Absyn.LetExp {decs, body, pos}) =
             let
-              fun processDec (dec, {venv = v, tenv = t}) = transDec(v, t, dec)
-              val {venv = new_venv, tenv = new_tenv} = foldl processDec {venv=venv, tenv=tenv} decs
+              fun processDec (dec, {venv = v, tenv = t}) = transDec (v, t, dec)
+              val {venv = new_venv, tenv = new_tenv} =
+                foldl processDec {venv = venv, tenv = tenv} decs
             in
               transExp (new_venv, new_tenv) body
             end
@@ -411,13 +489,15 @@ and functionArgsContravariant ([], []) = true
                     | NONE =>
                         ( ErrorMsg.error pos
                             ("field " ^ Symbol.name id
-                             ^ " not found on record type variable " ^ Symbol.name id)
+                             ^ " not found on record type variable "
+                             ^ Symbol.name id)
                         ; {exp = (), ty = Types.BOTTOM}
                         )
                   end
               | t =>
                   ( ErrorMsg.error pos
-                      ("dot of field " ^ Symbol.name id ^ " on non-record type " ^ Types.typeToString t)
+                      ("dot of field " ^ Symbol.name id ^ " on non-record type "
+                       ^ Types.typeToString t)
                   ; {exp = (), ty = Types.BOTTOM}
                   )
             end
@@ -434,7 +514,8 @@ and functionArgsContravariant ([], []) = true
                 Types.ARRAY (t, uq) => {exp = (), ty = t}
               | t =>
                   ( ErrorMsg.error pos
-                      ("subscript of variable of non-array type " ^ Types.typeToString t)
+                      ("subscript of variable of non-array type "
+                       ^ Types.typeToString t)
                   ; {exp = (), ty = Types.BOTTOM}
                   ) (* could make this message more useful *)
             end
