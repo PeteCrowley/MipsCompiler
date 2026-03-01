@@ -18,6 +18,7 @@ struct
       fun typename (Types.RECORD (r, _)) = "RECORD"
         | typename Types.NIL = "NIL"
         | typename Types.INT = "INT"
+        | typename Types.READ_ONLY_INT = "READ ONLY INT"
         | typename Types.STRING = "STRING"
         | typename (Types.ARRAY (ty, _)) =
             "ARRAY[" ^ typename ty ^ "]"

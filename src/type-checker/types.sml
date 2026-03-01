@@ -8,6 +8,7 @@ struct
     RECORD of (unit -> ((Symbol.symbol * ty) list)) * unique
   | NIL (* subtype of all non-primitives *)
   | INT
+  | READ_ONLY_INT
   | STRING
   | ARRAY of ty * unique
   | ARROW of (ty list) * ty
@@ -15,9 +16,10 @@ struct
   | BOTTOM (* type of impossibility *)
 
   fun typeToString t = case t of
-    RECORD _ => "Record"
-    | NIL => "Nil"
+    RECORD _ => "record"
+    | NIL => "nil"
     | INT => "int"
+    | READ_ONLY_INT => "read only int"
     | STRING => "string"
     | ARRAY _ => "array"
     | ARROW _ => "arrow"

@@ -58,6 +58,7 @@ struct
         (Types.BOTTOM, _) => true
       | (_, Types.UNIT) => true
       | (Types.INT, Types.INT) => true
+      | (Types.READ_ONLY_INT, Types.INT) => true
       | (Types.STRING, Types.STRING) => true
       | (Types.NIL, Types.NIL) => true
       | (Types.NIL, Types.RECORD _) => true
@@ -291,6 +292,9 @@ and functionArgsContravariant ([], []) = true
               val {exp = e1, ty = expr_ty} = checkExp exp
               val {exp = e2, ty = var_ty} = trvar var
             in
+              case var_ty of
+                Types.READ_ONLY_INT => ErrorMsg.error pos ("Tried to assign value to read only integer")
+                | _ => ();
               if isSubtype (expr_ty, var_ty) then
                 ()
               else
@@ -332,7 +336,7 @@ and functionArgsContravariant ([], []) = true
                 Symbol.enter
                   ( venv
                   , var
-                  , Types.INT
+                  , Types.READ_ONLY_INT
                   ) (* not sure how to make sure this new var is read-only *)
             in
               checkInt (checkExp lo, pos);
