@@ -89,6 +89,11 @@ and functionArgsContravariant ([], []) = true
     | leastUpperBound (t1, t2) =
         if areTypesEqual (t1, t2) then t1 else Types.UNIT
 
+  fun isTypeMismatch (t1, t2) = 
+    not (isSubtype(t1, t2) orelse isSubtype(t2, t1)) 
+      orelse (areTypesEqual(t1, Types.UNIT) andalso not (areTypesEqual(t2, Types.UNIT) orelse areTypesEqual(t2, Types.BOTTOM)))
+      orelse (areTypesEqual(t2, Types.UNIT) andalso not (areTypesEqual(t1, Types.UNIT) orelse areTypesEqual(t1, Types.BOTTOM)))
+
   fun checkInt ({exp, ty}, pos) =
     if not (isSubtype (ty, Types.INT)) then
       ErrorMsg.error pos "expected integer"
@@ -160,19 +165,19 @@ and functionArgsContravariant ([], []) = true
             val (functionVenv, fieldTypeList) = foldr processParam (venv', []) params
             val returnType = case result of 
               SOME (t_symbol, _) => (case Symbol.look (tenv, t_symbol) of
-                                      SOME t => SOME t
-                                    | NONE => (ErrorMsg.error pos ("Undefined type " ^ Symbol.name t_symbol); NONE))
-              | NONE => NONE
+                                      SOME t => t
+                                    | NONE => (ErrorMsg.error pos ("Undefined type " ^ Symbol.name t_symbol); Types.BOTTOM))
+              | NONE => Types.UNIT
             (* will have to do a lot more work for recursion / mutual recursion here *)
+            val functionVenv = Symbol.enter (functionVenv, name, Types.ARROW(fieldTypeList, returnType))
             val {exp = e, ty= bodyType} = transExp (functionVenv, tenv) body
           in
-            case returnType of
-              SOME t => if not (isSubtype (bodyType, t))
-                  then (ErrorMsg.error pos ("Type mismatch between for function dec " ^ Symbol.name name ^ " between type annotation " 
-                    ^ Types.typeToString t ^ " and body of type " ^ Types.typeToString bodyType);
-                    Symbol.enter (venv', name, Types.ARROW (fieldTypeList, Types.BOTTOM)))
-                  else Symbol.enter (venv', name, Types.ARROW(fieldTypeList, t))
-              | NONE => Symbol.enter (venv', name, Types.ARROW(fieldTypeList, bodyType))
+            if not (isSubtype (bodyType, returnType))
+              orelse (areTypesEqual(returnType, Types.UNIT) andalso not (areTypesEqual(bodyType, Types.UNIT) orelse areTypesEqual(bodyType, Types.BOTTOM)))
+              then (ErrorMsg.error pos ("Type mismatch between for function dec " ^ Symbol.name name ^ " between type annotation " 
+                ^ Types.typeToString returnType ^ " and body of type " ^ Types.typeToString bodyType);
+                Symbol.enter (venv', name, Types.ARROW (fieldTypeList, Types.BOTTOM)))
+              else Symbol.enter (venv', name, Types.ARROW(fieldTypeList, returnType))
           end
       in
         {tenv=tenv, venv=foldl processFunDec venv dec_list}
@@ -302,10 +307,6 @@ and functionArgsContravariant ([], []) = true
                 case else' of
                   SOME else_exp => checkExp else_exp
                 | NONE => {exp = (), ty = Types.UNIT}
-              fun isTypeMismatch (t1, t2) = 
-                not (isSubtype(t1, t2) orelse isSubtype(t2, t1)) 
-                  orelse (areTypesEqual(t1, Types.UNIT) andalso not (areTypesEqual(t2, Types.UNIT) orelse areTypesEqual(t2, Types.BOTTOM)))
-                  orelse (areTypesEqual(t2, Types.UNIT) andalso not (areTypesEqual(t1, Types.UNIT) orelse areTypesEqual(t1, Types.BOTTOM)))
             in
               checkInt ((checkExp test), pos);
               if isTypeMismatch(then_ty, else_ty)
