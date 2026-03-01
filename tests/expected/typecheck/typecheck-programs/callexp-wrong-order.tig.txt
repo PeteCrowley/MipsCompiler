@@ -1,1 +1,1 @@
-tests/input/typecheck-programs/callexp-wrong-order.tig:~1.5:Function args do not match
+tests/input/typecheck-programs/callexp-wrong-order.tig:~1.5:Function args do not match for function debug_fun

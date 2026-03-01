@@ -1,0 +1,2 @@
+tests/input/typecheck-programs/bad-vardec.tig:0.5:undefined variable x
+tests/input/typecheck-programs/bad-vardec.tig:0.9:undefined variable y

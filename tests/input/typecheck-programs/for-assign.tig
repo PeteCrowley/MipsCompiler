@@ -1,8 +1,6 @@
-/* This case depends on there being an INT debug in the venv already. */
-/* When we get lets working, uncomment the let */
-/* let */
-/*    var debug_int := 0 */
-/* in */
-(for i := 0 to 5
-do debug_int := debug_int + 1)
-/* end */
+let
+    var debug_int := 0 
+in 
+    (for i := 0 to 5 do 
+    debug_int := debug_int + 1)
+end

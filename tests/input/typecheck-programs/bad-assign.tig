@@ -1,6 +1,6 @@
-/*let
+let
     var debug_int: int := 5
     var debug_str: string := "hi"
-in*/
+in
     debug_int := debug_str
-/*end*/
+end
