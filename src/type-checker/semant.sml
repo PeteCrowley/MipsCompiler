@@ -302,8 +302,16 @@ and functionArgsContravariant ([], []) = true
                 case else' of
                   SOME else_exp => checkExp else_exp
                 | NONE => {exp = (), ty = Types.UNIT}
+              fun isTypeMismatch (t1, t2) = 
+                not (isSubtype(t1, t2) orelse isSubtype(t2, t1)) 
+                  orelse (areTypesEqual(t1, Types.UNIT) andalso not (areTypesEqual(t2, Types.UNIT) orelse areTypesEqual(t2, Types.BOTTOM)))
+                  orelse (areTypesEqual(t2, Types.UNIT) andalso not (areTypesEqual(t1, Types.UNIT) orelse areTypesEqual(t1, Types.BOTTOM)))
             in
               checkInt ((checkExp test), pos);
+              if isTypeMismatch(then_ty, else_ty)
+                then ErrorMsg.error pos ("Type mismatch in if then else statement:\n \tthen type: " ^
+                                      Types.typeToString then_ty ^ "\n\telse type: " ^ Types.typeToString else_ty)
+                else ();
               {exp = (), ty = leastUpperBound (then_ty, else_ty)}
             end
 
@@ -348,7 +356,7 @@ and functionArgsContravariant ([], []) = true
               val {exp = _, ty = initType} = checkExp init
             in
               checkInt (checkExp size, pos);
-              case Symbol.look (venv, typ) of
+              case Symbol.look (tenv, typ) of
                 SOME (Types.ARRAY (typeInArr, uq)) =>
                   (* Arrays are invariant over their type *)
                   (if not (isSubtype (initType, typeInArr)) then
@@ -380,7 +388,7 @@ and functionArgsContravariant ([], []) = true
                SOME ty => {exp = (), ty = ty}
              | NONE =>
                  ( ErrorMsg.error pos ("undefined variable " ^ Symbol.name id)
-                 ; {exp = (), ty = Types.INT}
+                 ; {exp = (), ty = Types.BOTTOM}
                  ))
         | trvar (Absyn.FieldVar (v, id, pos)) =
             let
@@ -398,15 +406,15 @@ and functionArgsContravariant ([], []) = true
                     | NONE =>
                         ( ErrorMsg.error pos
                             ("field " ^ Symbol.name id
-                             ^ " not found on record type")
-                        ; {exp = (), ty = Types.INT}
-                        ) (* could make this message more useful *)
+                             ^ " not found on record type variable " ^ Symbol.name id)
+                        ; {exp = (), ty = Types.BOTTOM}
+                        )
                   end
-              | _ =>
+              | t =>
                   ( ErrorMsg.error pos
-                      ("dot of field " ^ Symbol.name id ^ " on non-record type")
-                  ; {exp = (), ty = Types.INT}
-                  ) (* could make this message more useful *)
+                      ("dot of field " ^ Symbol.name id ^ " on non-record type " ^ Types.typeToString t)
+                  ; {exp = (), ty = Types.BOTTOM}
+                  )
             end
         | trvar (Absyn.SubscriptVar (v, exp, pos)) =
             let
@@ -419,10 +427,10 @@ and functionArgsContravariant ([], []) = true
             in
               case ty of
                 Types.ARRAY (t, uq) => {exp = (), ty = t}
-              | _ =>
+              | t =>
                   ( ErrorMsg.error pos
-                      "subscript of variable which is not an array"
-                  ; {exp = (), ty = Types.INT}
+                      ("subscript of variable of non-array type " ^ Types.typeToString t)
+                  ; {exp = (), ty = Types.BOTTOM}
                   ) (* could make this message more useful *)
             end
 

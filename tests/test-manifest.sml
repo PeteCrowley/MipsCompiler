@@ -63,7 +63,7 @@ struct
       , test_fn = parse
       }
     , { test_name = "typecheck"
-      , test_dirs = ["typecheck-programs"]
+      , test_dirs = ["typecheck-programs", "appel-programs"]
       , test_fn = typecheck
       }
     ]
