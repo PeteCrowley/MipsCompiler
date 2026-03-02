@@ -379,7 +379,7 @@ struct
                                let
                                  val {exp = e, ty = expr_ty} = checkExp expr
                                in
-                                 if not (isSubtype (ty, expr_ty)) then
+                                 if not (isSubtype (expr_ty, ty)) then
                                    ErrorMsg.error p
                                      ("Field " ^ Symbol.name id
                                       ^ " has incorrect type for record type "
