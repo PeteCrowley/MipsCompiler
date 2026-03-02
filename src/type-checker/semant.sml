@@ -21,7 +21,7 @@ struct
   fun transVar (venv, tenv, var) = {exp = (), ty = Types.BOTTOM}
 
   fun transTy (tenv, ty) = Types.BOTTOM
-      
+
 
   (* Returns true if t1 is a subtype of t2 *)
   fun isSubtype (t1, t2) =
@@ -58,6 +58,8 @@ struct
     | leastUpperBound (Types.RECORD r, Types.NIL) = Types.RECORD r
     | leastUpperBound (Types.NIL, Types.ARRAY a) = Types.ARRAY a
     | leastUpperBound (Types.ARRAY a, Types.NIL) = Types.ARRAY a
+    | leastUpperBound (Types.READ_ONLY_INT, Types.INT) = Types.INT
+    | leastUpperBound (Types.INT, Types.READ_ONLY_INT) = Types.INT
     | leastUpperBound (t1, t2) =
         if areTypesEqual (t1, t2) then t1 else Types.UNIT
 
@@ -117,7 +119,6 @@ struct
             | NONE => NONE
 
         in
-          (* Does not handle duplicate declarations since I'm not 100% the expected behavior *)
           case type_annotation of
             SOME t =>
               if not (isSubtype (exp_ty, t)) then
@@ -141,54 +142,125 @@ struct
     (* Just need to make this handle recursive type defs *)
     | transDec (venv, tenv, Absyn.TypeDec dec_list) =
         let
-          fun processTyDec ({name, ty=Absyn.NameTy (existingTypeName, p), pos}, tenv') =
-              let
-                val nameType = (case Symbol.look (tenv', existingTypeName) of
-                    SOME t => t
-                  | NONE =>
-                      ( ErrorMsg.error p ("undefined type " ^ Symbol.name existingTypeName)
-                      ; Types.BOTTOM
-                      ))
-              in
-                Symbol.enter (tenv', name, nameType)
-              end
-              
-          | processTyDec ({name, ty=Absyn.ArrayTy (sym, p), pos}, tenv') =
-              let
-                val typeInArray =
-                  case Symbol.look (tenv', sym) of
-                    SOME t => t
-                  | NONE =>
-                      ( ErrorMsg.error pos ("undefined type " ^ Symbol.name sym)
-                      ; Types.BOTTOM
-                      )
-              in
-                Symbol.enter (tenv', name, Types.ARRAY (typeInArray, ref ()))
-              end
-              
-          | processTyDec ({name, ty=Absyn.RecordTy fieldList, pos}, tenv') =
-              let
-                val uqRef = ref ()
-                fun f ({escape, name=fieldName, pos=pos', typ}, acc) =
+          fun readInTypeName ({name, ty, pos}, nameTable) =
+            let
+              val () =
+                case Symbol.look (nameTable, name) of
+                  SOME v =>
+                    ErrorMsg.error pos
+                      ("Duplicate type names " ^ Symbol.name name
+                       ^ " in type declaration group")
+                | NONE => ()
+              val typeNumber =
+                case ty of
+                  Absyn.NameTy t =>
+                    (Absyn.NameTy t, 0, ref ()) (* ref not really needed here *)
+                | Absyn.ArrayTy t => (Absyn.ArrayTy t, 0, ref ())
+                | Absyn.RecordTy t => (Absyn.RecordTy t, 0, ref ())
+            in
+              Symbol.enter (nameTable, name, typeNumber)
+            end
+
+          (* map for name -> (Absyn type, 1 if already parsed, unit ref for arrays and records) *)
+          val emptyNameSet: (Absyn.ty * int * unit ref) Symbol.table =
+            Symbol.empty
+          val typeNameTable = foldl readInTypeName emptyNameSet dec_list
+
+          (* Do cycle detection here for name types here before parseTypeFunction *)
+          fun parseType (name, tenv', nameTable, depth) =
+            if depth > 10 then
+              ( ErrorMsg.error 0
+                  ("parseType recursion depth exceeded while resolving "
+                   ^ Symbol.name name)
+              ; (Types.BOTTOM, tenv', nameTable)
+              )
+            else
+              case Symbol.look (nameTable, name) of
+                SOME (Absyn.NameTy (sym, pos), 0, uq) =>
                   let
-                    val ty =
-                      case Symbol.look (tenv', typ) of
-                        SOME t => t
-                      | NONE => if typ=name
-                            then Types.RECORD (recFunction, uqRef) 
-                            else
-                              ( ErrorMsg.error pos' ("undefined type " ^ Symbol.name typ)
-                              ; Types.BOTTOM
-                              )
+                    val (myType, newTenv, newNameTable) =
+                      parseType (sym, tenv', nameTable, depth + 1)
                   in
-                    (fieldName, ty) :: acc
+                    ( myType
+                    , Symbol.enter (newTenv, name, myType)
+                    , Symbol.enter
+                        (newNameTable, name, (Absyn.NameTy (sym, pos), 1, uq))
+                    )
                   end
-                and recFunction () = foldl f [] fieldList
-              in
-                Symbol.enter(tenv', name, Types.RECORD (recFunction, uqRef))
-              end
+              | SOME (Absyn.ArrayTy (sym, pos), 0, uq) =>
+                  let
+                    val (typeInArr, newTenv, newNameTable) =
+                      parseType (sym, tenv', nameTable, depth + 1)
+                    val myType = Types.ARRAY (typeInArr, uq)
+                  in
+                    ( myType
+                    , Symbol.enter (newTenv, name, myType)
+                    , Symbol.enter
+                        (newNameTable, name, (Absyn.ArrayTy (sym, pos), 1, uq))
+                    )
+                  end
+              | SOME (Absyn.RecordTy fieldList, 0, uq) =>
+                  let
+                    fun f
+                      ( {escape, name = fieldName, pos = pos', typ}
+                      , (acc, acc_tenv, acc_nt)
+                      ) =
+                      let
+                        val (ty, newTenv, newNt) =
+                          parseType (typ, acc_tenv, acc_nt, depth + 1)
+                      in
+                        ((fieldName, ty) :: acc, newTenv, newNt)
+                      end
+                    fun recFunction () =
+                      let
+                        val recordTenv = Symbol.enter
+                          (tenv', name, Types.RECORD (recFunction, uq))
+                        val recordNameTable = Symbol.enter
+                          (nameTable, name, (Absyn.RecordTy fieldList, 1, uq))
+
+                        val (fl, newTenv, newNameTable) =
+                          foldl f ([], recordTenv, recordNameTable) fieldList
+                      in
+                        fl
+                      end
+                    (* call recFunction once to typecheck fields and get an easier function to use in future *)
+                    val fl = recFunction ()
+                    val myType = Types.RECORD (fn () => fl, uq)
+                  in
+                    ( myType
+                    , Symbol.enter (tenv', name, myType)
+                    , Symbol.enter
+                        (nameTable, name, (Absyn.RecordTy fieldList, 0, uq))
+                    )
+                  end
+              | SOME (_, _, _) =>
+                  (case Symbol.look (tenv', name) of (* can merge this with the next case but separate rn for clarity *)
+                     SOME t => (t, tenv', nameTable)
+                   | NONE =>
+                       ( ErrorMsg.error 0 ("Undefined type " ^ Symbol.name name)
+                       ; (Types.BOTTOM, tenv', nameTable)
+                       )) (* Case should never get hit *)
+              | NONE =>
+                  case Symbol.look (tenv', name) of
+                    SOME t => (t, tenv', nameTable)
+                  | NONE =>
+                      ( ErrorMsg.error 0 ("Undefined type " ^ Symbol.name name)
+                      ; (Types.BOTTOM, tenv', nameTable)
+                      )
+
+          fun parseTypeHelper ({name, ty, pos}, (tenv', nameTable)) =
+            let
+              val (_, newTenv, newNameTable) =
+                parseType (name, tenv', nameTable, 0)
+            in
+              (newTenv, newNameTable)
+            end
+
+          val (newTenv, _) =
+            foldl parseTypeHelper (tenv, typeNameTable) dec_list
+
         in
-          {venv = venv, tenv = foldl processTyDec tenv dec_list}
+          {venv = venv, tenv = newTenv}
         end
     | transDec (venv, tenv, Absyn.FunctionDec dec_list) =
         let
@@ -385,13 +457,14 @@ struct
                                       ^ " has incorrect type for record type "
                                       ^ Symbol.name typ)
                                  else
-                                    ()
-                                   
+                                   ()
+
                                end
                            | NONE =>
                                ErrorMsg.error pos
                                  ("Field " ^ Symbol.name id
-                                  ^ " not found in initialization of record type "
+                                  ^
+                                  " not found in initialization of record type "
                                   ^ Symbol.name typ)
                          ; checkRecordFields (providedFields, rest)
                          )
@@ -557,9 +630,10 @@ struct
               val {exp = e, ty = ty} = trvar v
               val {exp = e2, ty = t2} = checkExp exp
               val () =
-                case t2 of
-                  Types.INT => ()
-                | _ => ErrorMsg.error pos "subscript must be an integer"
+                if not (isSubtype (t2, Types.INT)) then
+                  (ErrorMsg.error pos "subscript must be an integer"; ())
+                else
+                  ()
             in
               case ty of
                 Types.ARRAY (t, uq) => {exp = (), ty = t}

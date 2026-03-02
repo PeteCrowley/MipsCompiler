@@ -1,5 +1,5 @@
 let
-    type list := {first: int rest: list}
+    type list = {first: int, rest: list}
     /* var l1: list := {1, nil} */
     type any = {any : int}
     var buffer := getchar()

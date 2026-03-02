@@ -1,0 +1,5 @@
+let
+    type tree ={key: int, children: treelist}
+in
+    0
+end
