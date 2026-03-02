@@ -185,7 +185,7 @@ struct
         end
     | transDec (venv, tenv, Absyn.FunctionDec dec_list) =
         let
-          fun processParam ({name, escape, typ, pos}, (venv', acc)) =
+          fun getParamTypes ({name, escape, typ, pos}, acc) =
             let
               val paramType =
                 case Symbol.look (tenv, typ) of
@@ -197,12 +197,13 @@ struct
                     ; Types.BOTTOM
                     )
             in
-              (Symbol.enter (venv', name, paramType), paramType :: acc)
+              paramType :: acc
             end
-          fun processFunDec ({body, name, params, pos, result}, venv') =
+
+          fun readInFunctionHeader
+            ({body, name, params, pos, result}, (venv', nameEnv)) =
             let
-              val (functionVenv, fieldTypeList) =
-                foldr processParam (venv', []) params
+              val fieldTypeList = foldr getParamTypes [] params
               val returnType =
                 case result of
                   SOME (t_symbol, _) =>
@@ -214,9 +215,47 @@ struct
                          ; Types.BOTTOM
                          ))
                 | NONE => Types.UNIT
-              (* will have to do a lot more work for recursion / mutual recursion here *)
-              val functionVenv = Symbol.enter
-                (functionVenv, name, Types.ARROW (fieldTypeList, returnType))
+              val () =
+                case Symbol.look (nameEnv, name) of
+                  SOME v =>
+                    ErrorMsg.error pos
+                      ("Duplicate function names " ^ Symbol.name name
+                       ^ " in function declaration group")
+                | NONE => ()
+            in
+              ( Symbol.enter
+                  (venv', name, Types.ARROW (fieldTypeList, returnType))
+              , Symbol.enter (nameEnv, name, 1)
+              )
+            end
+
+          (* A lot of code duplication from getParamTypes but it's probably fine *)
+          fun addParamTypesToVenv ({name, escape, typ, pos}, venv') =
+            let
+              val paramType =
+                case Symbol.look (tenv, typ) of
+                  SOME t => t
+                | NONE =>
+                    ( ErrorMsg.error pos
+                        ("Undefined type " ^ Symbol.name typ ^ " for field "
+                         ^ Symbol.name name)
+                    ; Types.BOTTOM
+                    )
+            in
+              Symbol.enter (venv', name, paramType)
+            end
+
+          fun typeCheckFunction ({body, name, params, pos, result}, venv') =
+            let
+              val functionVenv = foldl addParamTypesToVenv venv' params
+              val returnType =
+                case Symbol.look (venv', name) of
+                  SOME (Types.ARROW (fl, retType)) => retType
+                | _ =>
+                    ( ErrorMsg.error pos
+                        ("Undefined function " ^ Symbol.name name)
+                    ; Types.BOTTOM
+                    ) (* Should never hit this case *)
               val {exp = e, ty = bodyType} = transExp (functionVenv, tenv) body
             in
               if
@@ -228,20 +267,21 @@ struct
                    (areTypesEqual (bodyType, Types.UNIT)
                     orelse areTypesEqual (bodyType, Types.BOTTOM)))
               then
-                ( ErrorMsg.error pos
-                    ("Type mismatch between for function dec "
-                     ^ Symbol.name name ^ " between type annotation "
-                     ^ Types.typeToString returnType ^ " and body of type "
-                     ^ Types.typeToString bodyType)
-                ; Symbol.enter
-                    (venv', name, Types.ARROW (fieldTypeList, Types.BOTTOM))
-                )
+                ErrorMsg.error pos
+                  ("Type mismatch between for function dec " ^ Symbol.name name
+                   ^ " between type annotation " ^ Types.typeToString returnType
+                   ^ " and body of type " ^ Types.typeToString bodyType)
               else
-                Symbol.enter
-                  (venv', name, Types.ARROW (fieldTypeList, returnType))
+                ()
             end
+          val emptyNameSet: int Symbol.table = Symbol.empty
+          val (venvWithFunctionGroup, nameList) =
+            foldl readInFunctionHeader (venv, emptyNameSet) dec_list
+          val () =
+            List.app (fn dec => typeCheckFunction (dec, venvWithFunctionGroup))
+              dec_list
         in
-          {tenv = tenv, venv = foldl processFunDec venv dec_list}
+          {tenv = tenv, venv = venvWithFunctionGroup}
         end
 
   and transExp (venv, tenv) =
@@ -271,7 +311,10 @@ struct
                         ([] : Types.ty list) args)
                  in
                    (*check that args match arrow_type args.*)
-                   if functionArgsContravariant (arg_tylist, fargs) (*return return type of function*) then
+                   if
+                     functionArgsContravariant
+                       (arg_tylist, fargs) (*return return type of function*)
+                   then
                      {exp = (), ty = ret}
                    else
                      ( ErrorMsg.error pos
