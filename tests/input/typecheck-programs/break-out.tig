@@ -2,10 +2,9 @@
 let 
     function a(x:int) =
         while x > 0 do
-            /* x + 1 currently being evaluated to unit ... */
-            x := x + 1
+            (x := x + 1;
             if x = 10
-            then break
+            then break)
 in
     (a(11);
     break)
