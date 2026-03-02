@@ -254,7 +254,6 @@ struct
         | checkExp (Absyn.IntExp _) = {exp = (), ty = Types.INT}
         | checkExp (Absyn.StringExp (_, _)) = {exp = (), ty = Types.STRING}
 
-        (*TODO: implement function call checking*)
         | checkExp
             (Absyn.CallExp
                {func: Absyn.symbol, args: Absyn.exp list, pos: Absyn.pos}) =

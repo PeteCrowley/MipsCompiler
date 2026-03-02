@@ -1,0 +1,14 @@
+let
+    function f(v: int) =
+        /* v: string should hide v: int */
+        let var v: string := "hide int"
+            var c: string := ""
+        in c := v;
+            /* now the new int should hide the string */
+            let var v:= 7 in print(v) end;
+            c := v;
+        end
+in
+    f(5)
+end
+

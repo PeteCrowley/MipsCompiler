@@ -1,0 +1,2 @@
+tests/input/typecheck-programs/for-read-only.tig:~2.5:Tried to assign value to read only integer
+tests/input/typecheck-programs/for-read-only.tig:~2.5:Cannot assign int to read only int

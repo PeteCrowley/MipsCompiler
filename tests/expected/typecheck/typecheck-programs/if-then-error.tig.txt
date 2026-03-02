@@ -1,0 +1,4 @@
+tests/input/typecheck-programs/if-then-error.tig:~4.37:Type mismatch in if then else statement:
+ 	then type: string
+	else type: unit
+tests/input/typecheck-programs/if-then-error.tig:~4.5:Type mismatch between for function dec f between type annotation string and body of type unit
