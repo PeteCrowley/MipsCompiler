@@ -1,6 +1,30 @@
 let
-    type list := {val: int rest: list}
-    var l1: list := {1, nil}
+    type list := {first: int rest: list}
+    /* var l1: list := {1, nil} */
+    type any = {any : int}
+    var buffer := getchar()
+
+    function readint(any: any) : int =
+        let var i := 0
+            function isdigit(s : string) : int = 
+                ord(buffer)>=ord("0") & ord(buffer)<=ord("9")
+            function skipto() =
+            while buffer=" " | buffer="\n"
+                do buffer := getchar()
+        in skipto();
+            any.any := isdigit(buffer);
+            while isdigit(buffer)
+            do (i := i*10+ord(buffer)-ord("0"); buffer := getchar());
+            i
+        end
+    function readlist() : list =
+        let var any := any{any=0}
+            var i := readint(any)
+        in if any.any
+            then list{first=i,rest=readlist()}
+            else nil
+        end
+        
 in
-    l1
+    ()
 end

@@ -168,13 +168,14 @@ struct
               
           | processTyDec ({name, ty=Absyn.RecordTy fieldList, pos}, tenv') =
               let
+                val uqRef = ref ()
                 fun f ({escape, name=fieldName, pos=pos', typ}, acc) =
                   let
                     val ty =
                       case Symbol.look (tenv', typ) of
                         SOME t => t
                       | NONE => if typ=name
-                            then Types.RECORD (recFunction, ref ()) 
+                            then Types.RECORD (recFunction, uqRef) 
                             else
                               ( ErrorMsg.error pos' ("undefined type " ^ Symbol.name typ)
                               ; Types.BOTTOM
@@ -184,7 +185,7 @@ struct
                   end
                 and recFunction () = foldl f [] fieldList
               in
-                Symbol.enter(tenv', name, Types.RECORD (recFunction, ref ()))
+                Symbol.enter(tenv', name, Types.RECORD (recFunction, uqRef))
               end
         in
           {venv = venv, tenv = foldl processTyDec tenv dec_list}
@@ -384,7 +385,8 @@ struct
                                       ^ " has incorrect type for record type "
                                       ^ Symbol.name typ)
                                  else
-                                   ()
+                                    ()
+                                   
                                end
                            | NONE =>
                                ErrorMsg.error pos
