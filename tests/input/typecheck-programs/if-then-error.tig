@@ -1,0 +1,7 @@
+/* if-then should return unit */
+let
+    function f(x: string): string = if x > "" then x
+in
+    ()
+end
+

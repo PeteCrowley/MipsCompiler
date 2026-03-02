@@ -1,0 +1,11 @@
+/* should have error on the second but not the first */
+let 
+    function a(x:int) =
+        while x > 0 do
+            (x := x + 1;
+            if x = 10
+            then break)
+in
+    (a(11);
+    break)
+end

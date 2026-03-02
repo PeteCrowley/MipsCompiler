@@ -1,0 +1,12 @@
+/* for some reason semicolon does not result in a parse error */
+let
+    var s: string = 
+    let
+        var v: string := ""
+        var n: int := 0
+    in
+        "";
+    end
+in
+    ()
+end

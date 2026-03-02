@@ -1,0 +1,1 @@
+tests/input/appel-programs/test10.tig:0.1:Body of while loop produces non-unit value
