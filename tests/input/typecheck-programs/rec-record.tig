@@ -1,0 +1,6 @@
+let
+    type list := {val: int rest: list}
+    var l1: list := {1, nil}
+in
+    l1
+end
