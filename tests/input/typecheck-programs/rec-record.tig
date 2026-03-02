@@ -1,29 +1,20 @@
 let
     type list = {first: int, rest: list}
-    /* var l1: list := {1, nil} */
-    type any = {any : int}
-    var buffer := getchar()
+    var l1 := list {first=1, rest=nil}
 
-    function readint(any: any) : int =
-        let var i := 0
-            function isdigit(s : string) : int = 
-                ord(buffer)>=ord("0") & ord(buffer)<=ord("9")
-            function skipto() =
-            while buffer=" " | buffer="\n"
-                do buffer := getchar()
-        in skipto();
-            any.any := isdigit(buffer);
-            while isdigit(buffer)
-            do (i := i*10+ord(buffer)-ord("0"); buffer := getchar());
-            i
-        end
-    function readlist() : list =
-        let var any := any{any=0}
-            var i := readint(any)
-        in if any.any
-            then list{first=i,rest=readlist()}
-            else nil
-        end
+    type treelist = {first: tree, rest: treelist}
+    type tree = {key: int, children: treelist}
+
+    var t1 := tree {key=1, children=nil}
+    var t2 := tree {key=2, children=nil}
+    var children := treelist {first=t1, rest=treelist {first=t2, rest=nil}}
+    var t3 := tree {key=3, children=children}
+
+    type myInt = int
+    type myInt2 = myInt
+    type myArrInt = array of myInt2
+    type myRecord = {field1: myInt, field2: recordArray}
+    type recordArray = array of myRecord
         
 in
     ()
