@@ -7,7 +7,7 @@ let
         in c := v;
             /* now the new int should hide the string */
             let var v:= 7 in n := v end;
-            c := v;
+            c := v
         end
 in
     f(5)
