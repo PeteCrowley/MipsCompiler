@@ -7,7 +7,7 @@ sig
   type tenv
 
   val transVar: venv * tenv * Absyn.var -> expty
-  val transExp: venv * tenv -> Absyn.exp -> expty
+  val transExp: (venv * bool) * tenv -> Absyn.exp -> expty
   val transDec: venv * tenv * Absyn.dec -> {venv: venv, tenv: tenv}
   val transTy: tenv * Absyn.ty -> Types.ty
 
@@ -140,7 +140,7 @@ struct
 
   fun transDec (venv, tenv, Absyn.VarDec {name, escape, typ, init, pos}) =
         let
-          val {exp = e, ty = exp_ty} = transExp (venv, tenv) init
+          val {exp = e, ty = exp_ty} = transExp ((venv, false), tenv) init
           val type_annotation =
             case typ of
               SOME (t_symbol, _) =>
@@ -154,7 +154,7 @@ struct
             | NONE => NONE
 
         in
-          (* Does not handle duplicate declarations since I'm not 100% the expected behavior *)
+          (* redeclarations "hide" the previous declaration, regardless of type *)
           case type_annotation of
             SOME t =>
               if not (isSubtype (exp_ty, t)) then
@@ -215,9 +215,9 @@ struct
                          ))
                 | NONE => Types.UNIT
               (* will have to do a lot more work for recursion / mutual recursion here *)
-              val functionVenv = Symbol.enter
-                (functionVenv, name, Types.ARROW (fieldTypeList, returnType))
-              val {exp = e, ty = bodyType} = transExp (functionVenv, tenv) body
+              val functionVenv = (Symbol.enter (functionVenv, name, Types.ARROW
+              (fieldTypeList, returnType)))
+              val {exp = e, ty = bodyType} = transExp ((functionVenv, false), tenv) body
             in
               if
                 not (isSubtype (bodyType, returnType))
@@ -244,7 +244,7 @@ struct
           {tenv = tenv, venv = foldl processFunDec venv dec_list}
         end
 
-  and transExp (venv, tenv) =
+  and transExp ((venv, isLoop), tenv) =
     let
       fun checkExp (Absyn.VarExp var) =
             let val {exp = e, ty = ty} = trvar var
@@ -399,7 +399,8 @@ struct
 
         | checkExp (Absyn.WhileExp {test, body, pos}) =
             ( checkInt (checkExp test, pos)
-            ; case checkExp body of
+            (*call transexp, because we need to set isLoop to true!*)
+            ; case transExp ((venv, true), tenv) body of
                 {exp = _, ty = Types.UNIT} => ()
               | _ =>
                   ErrorMsg.error pos
@@ -414,24 +415,28 @@ struct
                   ( venv
                   , var
                   , Types.READ_ONLY_INT
-                  ) (* not sure how to make sure this new var is read-only *)
+                  )
             in
               checkInt (checkExp lo, pos);
               checkInt (checkExp hi, pos);
-              case transExp (newVenv, tenv) body of
+              case transExp ((newVenv, true), tenv) body of
                 {exp = _, ty = Types.UNIT} => ()
               | _ =>
                   ErrorMsg.error pos "Body of for loop produces non-unit value";
               {exp = (), ty = Types.UNIT}
             end
-        | checkExp (Absyn.BreakExp _) = {exp = (), ty = Types.BOTTOM}
+        | checkExp (Absyn.BreakExp pos) = 
+          if isLoop 
+          then {exp = (), ty = Types.BOTTOM} 
+          else (ErrorMsg.error pos "Break present outside of loop"; 
+          {exp = (), ty = Types.BOTTOM})
         | checkExp (Absyn.LetExp {decs, body, pos}) =
             let
               fun processDec (dec, {venv = v, tenv = t}) = transDec (v, t, dec)
               val {venv = new_venv, tenv = new_tenv} =
                 foldl processDec {venv = venv, tenv = tenv} decs
             in
-              transExp (new_venv, new_tenv) body
+              transExp ((new_venv, false), new_tenv) body
             end
         | checkExp (Absyn.ArrayExp {typ, size, init, pos}) =
             let

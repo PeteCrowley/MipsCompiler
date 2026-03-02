@@ -3,7 +3,7 @@ sig
   type ty
   type enventry = ty
   val base_tenv: ty Symbol.table (*predefined types*)
-  val base_venv: enventry Symbol.table (*predefined functions*)
+  val base_venv: ((enventry Symbol.table) * bool) (*predefined functions*)
 end =
 struct
   type ty = Types.ty
@@ -19,7 +19,7 @@ struct
     in
       foldl addPairToTable table pairs
     end
-  val base_venv: enventry Symbol.table =
+  val base_venv: ((enventry Symbol.table) * bool) =
     let
       val table = Symbol.empty
       val pairs =
@@ -39,6 +39,6 @@ struct
         , (Symbol.symbol "exit", Types.ARROW ([Types.INT], Types.UNIT))
         ]
     in
-      foldl addPairToTable table pairs
+      ((foldl addPairToTable table pairs), false)
     end
 end
