@@ -1,1 +1,2 @@
-tests/input/appel-programs/test35.tig:~1.2:Function args do not match for function g
+tests/input/appel-programs/test35.tig:~1.2:type mismatch on argument of function g: expected int, got string
+tests/input/appel-programs/test35.tig:~1.2:not enough arguments for function g

@@ -1,0 +1,2 @@
+tests/input/appel-programs/test22.tig:~1.6:field nam not found on record type
+tests/input/appel-programs/test22.tig:~1.2:Cannot assign string to bottom

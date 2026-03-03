@@ -443,19 +443,48 @@ struct
                      (foldl
                         (fn (arg, arg_tylist) => (arg_to_ty arg) :: arg_tylist)
                         ([] : Types.ty list) args)
+
+                   (* Tail recursive zip routine *)
+                   fun typeCheckArgs ([], [], success) = success
+                     | typeCheckArgs (argty :: arest, paramty :: prest, success) =
+                         let
+                           val success =
+                             if not (isSubtype (argty, paramty)) then
+                               ( ErrorMsg.error pos
+                                   ("type mismatch on argument of function "
+                                    ^ Symbol.name func ^ ": expected "
+                                    ^ Types.typeToString paramty ^ ", got "
+                                    ^ Types.typeToString argty)
+                               ; false
+                               )
+                             else
+                               success
+                         in
+                           typeCheckArgs (arest, prest, success)
+                         end
+
+                     | typeCheckArgs (arg :: args, [], success) =
+                         ( (* Do not continue once this error message is emitted *)
+                           ErrorMsg.error pos
+                             ("too many arguments in function "
+                              ^ Symbol.name func)
+                         ; false
+                         )
+                     | typeCheckArgs ([], pty :: ps, success) =
+                         ( (* Do not continue once this error message is emitted *)
+                           ErrorMsg.error pos
+                             ("not enough arguments for function "
+                              ^ Symbol.name func)
+                         ; false
+                         )
+
+                   val typesMatch = typeCheckArgs (arg_tylist, fargs, true)
                  in
-                   (*check that args match arrow_type args.*)
-                   if
-                     functionArgsContravariant
-                       (arg_tylist, fargs) (*return return type of function*)
-                   then
+                   if typesMatch then
                      {exp = (), ty = ret}
                    else
-                     ( ErrorMsg.error pos
-                         ("Function args do not match for function "
-                          ^ Symbol.name func)
-                     ; {exp = (), ty = Types.NIL}
-                     )
+                     (* Type error already emitted *)
+                     {exp = (), ty = Types.NIL}
                  end
              | _ =>
                  ( ErrorMsg.error pos
@@ -670,8 +699,7 @@ struct
                     | NONE =>
                         ( ErrorMsg.error pos
                             ("field " ^ Symbol.name id
-                             ^ " not found on record type variable "
-                             ^ Symbol.name id)
+                             ^ " not found on record type")
                         ; {exp = (), ty = Types.BOTTOM}
                         )
                   end
