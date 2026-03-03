@@ -1,0 +1,1 @@
+tests/input/typecheck-programs/bad-break.tig:~8.21:Break present outside of loop
