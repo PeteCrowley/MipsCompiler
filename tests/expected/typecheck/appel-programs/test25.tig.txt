@@ -1,0 +1,1 @@
+tests/input/appel-programs/test25.tig:~2.3:dot of field f on non-record type int

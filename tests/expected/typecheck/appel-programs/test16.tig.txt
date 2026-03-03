@@ -1,0 +1,2 @@
+tests/input/appel-programs/test16.tig:~7.1:Cycle detected starting with type a
+tests/input/appel-programs/test16.tig0.0:parseType recursion depth exceeded while resolving d

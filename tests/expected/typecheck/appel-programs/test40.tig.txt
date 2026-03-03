@@ -1,0 +1,1 @@
+tests/input/appel-programs/test40.tig:~4.2:Type mismatch between for function dec g between type annotation unit and body of type int

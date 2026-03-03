@@ -1,0 +1,2 @@
+tests/input/appel-programs/test33.tig:~3.10:Undefined record type
+tests/input/appel-programs/test33.tig:~3.2:Init expression for nil must have type annotation

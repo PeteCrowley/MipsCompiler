@@ -1,0 +1,1 @@
+tests/input/appel-programs/test43.tig:~1.2:expected integer

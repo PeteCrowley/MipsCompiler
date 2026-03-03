@@ -1,0 +1,1 @@
+tests/input/appel-programs/test38.tig:~3.2:Duplicate type names a in type declaration group

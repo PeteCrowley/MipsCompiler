@@ -1,0 +1,1 @@
+tests/input/appel-programs/test36.tig:~1.2:Function args do not match for function g

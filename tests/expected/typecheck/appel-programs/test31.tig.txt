@@ -1,0 +1,1 @@
+tests/input/appel-programs/test31.tig:~3.2:Type mismatch between for var dec a between type annotation int and init expr of type string

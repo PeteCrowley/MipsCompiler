@@ -1,0 +1,1 @@
+tests/input/appel-programs/test13.tig:0.1:expected int * int or str * str

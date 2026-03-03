@@ -1,0 +1,1 @@
+tests/input/appel-programs/test45.tig:~3.2:Init expression for nil must have type annotation

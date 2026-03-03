@@ -1,0 +1,1 @@
+tests/input/appel-programs/test29.tig:~3.2:Type mismatch between for var dec arr1 between type annotation array and init expr of type array

@@ -1,0 +1,2 @@
+tests/input/appel-programs/test49.tig:~3.10:undefined variable rectype
+tests/input/appel-programs/test49.tig:~3.10:expected integer

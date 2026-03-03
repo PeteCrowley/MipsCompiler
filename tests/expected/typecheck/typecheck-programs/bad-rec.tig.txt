@@ -1,0 +1,1 @@
+tests/input/typecheck-programs/bad-rec.tig0.0:Undefined type treelist

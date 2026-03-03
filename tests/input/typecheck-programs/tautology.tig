@@ -1,0 +1,6 @@
+let
+    type A = B
+    type B = A
+in
+    ()
+end

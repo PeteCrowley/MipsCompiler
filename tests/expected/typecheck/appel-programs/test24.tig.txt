@@ -1,0 +1,1 @@
+tests/input/appel-programs/test24.tig:~2.3:subscript of variable of non-array type int

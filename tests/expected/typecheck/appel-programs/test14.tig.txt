@@ -1,0 +1,1 @@
+tests/input/appel-programs/test14.tig:~1.5:incompatible types in comparison

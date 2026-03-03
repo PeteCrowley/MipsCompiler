@@ -1,0 +1,3 @@
+tests/input/typecheck-programs/tautology-hard.tig:~9.5:Cycle detected starting with type A
+tests/input/typecheck-programs/tautology-hard.tig:~8.5:Cycle detected starting with type B
+tests/input/typecheck-programs/tautology-hard.tig0.0:parseType recursion depth exceeded while resolving H

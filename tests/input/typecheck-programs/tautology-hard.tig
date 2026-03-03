@@ -1,0 +1,11 @@
+let
+    type A = H
+    type B = D
+    type C = D
+    type D = F
+    type E = F
+    type F = G
+    type G = H
+    type H = B
+in
+end

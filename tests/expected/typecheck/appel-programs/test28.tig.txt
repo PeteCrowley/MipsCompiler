@@ -1,0 +1,1 @@
+tests/input/appel-programs/test28.tig:~3.2:Type mismatch between for var dec rec1 between type annotation record and init expr of type record

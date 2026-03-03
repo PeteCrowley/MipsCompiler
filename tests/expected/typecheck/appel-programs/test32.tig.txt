@@ -1,0 +1,1 @@
+tests/input/appel-programs/test32.tig:~3.11:Initializing expression of type string incorrect type for array of type arrayty

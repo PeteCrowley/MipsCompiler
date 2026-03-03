@@ -1,1 +1,7 @@
-tests/input/typecheck-programs/if-then-else-error.tig:~1.2:expected integer
+tests/input/typecheck-programs/if-then-else-error.tig:~2.2:expected integer
+tests/input/typecheck-programs/if-then-else-error.tig:~1.1:Type mismatch in if then else statement:
+ 	then type: string
+	else type: int
+tests/input/typecheck-programs/if-then-else-error.tig:0.1:Type mismatch in if then else statement:
+ 	then type: string
+	else type: unit

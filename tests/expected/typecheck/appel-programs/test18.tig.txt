@@ -1,0 +1,1 @@
+tests/input/appel-programs/test18.tig:~10.4:Undefined function do_nothing2

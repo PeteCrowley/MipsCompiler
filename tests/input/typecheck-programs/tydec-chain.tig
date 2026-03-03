@@ -1,0 +1,12 @@
+let
+    type a = b
+    type b = c
+    type c = int
+    type d = a
+    var i: c := 5
+    var j: d := 0
+in
+    (j := i;
+    i := j)
+end
+

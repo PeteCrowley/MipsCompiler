@@ -1,0 +1,2 @@
+tests/input/appel-programs/test21.tig:~5.9:expected integer
+tests/input/appel-programs/test21.tig:~8.1:Type mismatch between for function dec nfactor between type annotation unit and body of type int

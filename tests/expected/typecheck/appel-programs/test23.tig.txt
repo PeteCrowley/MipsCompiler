@@ -1,0 +1,2 @@
+tests/input/appel-programs/test23.tig:~2.2:Cannot assign int to string
+tests/input/appel-programs/test23.tig:~1.2:Cannot assign string to int
