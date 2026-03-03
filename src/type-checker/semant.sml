@@ -140,7 +140,6 @@ struct
               else
                 {tenv = tenv, venv = Symbol.enter (venv, name, exp_ty)}
         end
-    (* Just need to make this handle recursive type defs *)
     | transDec (venv, tenv, Absyn.TypeDec dec_list) =
         let
           fun readInTypeName ({name, ty, pos}, nameTable) =
@@ -162,6 +161,7 @@ struct
               Symbol.enter (nameTable, name, typeNumber)
             end
 
+          (* Do cycle detection here for name types here before parseTypeFunction *)
           fun cycleCheck nameTable = 
             let
               fun dfs (name, visited) = 
@@ -211,10 +211,9 @@ struct
           val typeNameTable = foldl readInTypeName emptyNameSet dec_list
           val (hasCycles, _) = cycleCheck typeNameTable
           
-
-          (* Do cycle detection here for name types here before parseTypeFunction *)
+        (*TODO: remove recursion limit when done deubgging*)
           fun parseType (name, tenv', nameTable, depth) =
-            if depth > 10 then
+            if depth > 1000 then
               ( ErrorMsg.error 0
                   ("parseType recursion depth exceeded while resolving "
                    ^ Symbol.name name)
