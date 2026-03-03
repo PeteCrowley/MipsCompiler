@@ -162,10 +162,55 @@ struct
               Symbol.enter (nameTable, name, typeNumber)
             end
 
+          fun cycleCheck nameTable = 
+            let
+              fun dfs (name, visited) = 
+                let
+                  val nameMatch = Symbol.look (nameTable, name)
+                  val newVisited = case nameMatch of
+                    (SOME (Absyn.NameTy _, _, _)  | SOME (Absyn.ArrayTy _, _, _)) => Symbol.enter (visited, name, 1)
+                    | _ => visited
+                  val dependentName = case nameMatch of
+                    SOME (Absyn.NameTy (sym, pos), _, _)  => SOME sym
+                    | SOME (Absyn.ArrayTy (sym, pos), _, _) => SOME sym
+                    | _ => NONE
+                  val (isCycle, updatedVisited) = case dependentName of
+                    SOME sym => (case Symbol.look (visited, sym) of
+                      SOME 1 => (true, newVisited)
+                      | SOME 2 => (false, newVisited) (* cross edge *)
+                      | SOME _ => (false, newVisited) (* impossible *)
+                      | NONE => dfs(sym, newVisited)
+                    )
+                    | NONE => (false, newVisited)
+                    
+                in
+                  (isCycle, Symbol.enter (visited, name, 2))
+                end
+              
+              fun processName ({name, ty, pos}, (hasCycles, visited_acc)) =
+                  case ty of
+                    (Absyn.ArrayTy _ | Absyn.NameTy _) =>
+                      let
+                        val (newHasCycles, newVisited) = dfs(name, visited_acc)
+                      in
+                        if newHasCycles then ErrorMsg.error pos ("Cycle detected starting with type " ^ Symbol.name name) else ();
+                        (newHasCycles orelse hasCycles, newVisited)
+                      end
+                    | _ => (hasCycles, visited_acc)
+                
+
+              val visited: int Symbol.table = Symbol.empty
+              
+            in
+              foldl processName (false, visited) dec_list
+            end
+
           (* map for name -> (Absyn type, 1 if already parsed, unit ref for arrays and records) *)
           val emptyNameSet: (Absyn.ty * int * unit ref) Symbol.table =
             Symbol.empty
           val typeNameTable = foldl readInTypeName emptyNameSet dec_list
+          val (hasCycles, _) = cycleCheck typeNameTable
+          
 
           (* Do cycle detection here for name types here before parseTypeFunction *)
           fun parseType (name, tenv', nameTable, depth) =
