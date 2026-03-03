@@ -15,8 +15,9 @@ struct
   | UNIT (* top type *)
   | BOTTOM (* type of impossibility *)
 
-  fun typeToString t = case t of
-    RECORD _ => "record"
+  fun typeToString t =
+    case t of
+      RECORD _ => "record"
     | NIL => "nil"
     | INT => "int"
     | READ_ONLY_INT => "read only int"
