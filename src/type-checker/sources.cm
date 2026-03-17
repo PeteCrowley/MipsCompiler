@@ -14,3 +14,4 @@ printtree.sml
 tree.sml
 temp.sml
 temp.sig
+translate.sig
