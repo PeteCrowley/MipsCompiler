@@ -1,7 +1,8 @@
 structure Env:
 sig
   type ty
-  type enventry
+  datatype enventry = VarEntry of {access: Translate.access, ty: ty}
+                | FunEntry of {level: Translate.level, label: Temp.label, ty: ty}
   val base_tenv: ty Symbol.table (*predefined types*)
   val base_venv: ((enventry Symbol.table) * bool) (*predefined functions*)
   val getFunEntry: Translate.level * ty * bool list -> enventry

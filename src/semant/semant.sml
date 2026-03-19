@@ -103,7 +103,7 @@ struct
     else
       ErrorMsg.error pos "incompatible types in comparison"
 
-  fun transDec (venv, tenv, Absyn.VarDec {name, escape, typ, init, pos}) =
+  fun transDec (venv: Env.enventry Symbol.table, tenv, Absyn.VarDec {name, escape, typ, init, pos}) =
         let
           val {exp = e, ty = exp_ty} = transExp ((venv, false), tenv) init
           val type_annotation =
@@ -384,7 +384,7 @@ struct
               val functionVenv = foldl addParamTypesToVenv venv' params
               val returnType =
                 case Symbol.look (venv', name) of
-                  SOME (Types.ARROW (fl, retType)) => retType
+                  SOME (Env.FunEntry{level, label, ty=Types.ARROW (fl, retType)}) => retType
                 | _ =>
                     ( ErrorMsg.error pos
                         ("Undefined function " ^ Symbol.name name)
@@ -434,7 +434,7 @@ struct
                {func: Absyn.symbol, args: Absyn.exp list, pos: Absyn.pos}) =
             (*check that func actually exists as a function in our venv*)
             (case Symbol.look (venv, func) of
-               SOME (Types.ARROW (fargs, ret)) =>
+               SOME (Env.FunEntry {level, label, ty = Types.ARROW (fargs, ret)}) =>
                  let
                    fun arg_to_ty (arg: Absyn.exp) =
                      #ty (checkExp arg)
@@ -678,7 +678,12 @@ struct
       (* | checkExp _ = {exp = (), ty = Types.BOTTOM} *)
       and trvar (Absyn.SimpleVar (id, pos)) =
             (case Symbol.look (venv, id) of
-               SOME ty => {exp = (), ty = ty}
+               SOME (Env.VarEntry {access, ty}) => {exp = (), ty = ty}
+             | SOME (Env.FunEntry {level, label, ty}) =>
+                 ( ErrorMsg.error pos
+                     ("function name " ^ Symbol.name id ^ " used as variable")
+                 ; {exp = (), ty = Types.BOTTOM}
+                 )
              | NONE =>
                  ( ErrorMsg.error pos ("undefined variable " ^ Symbol.name id)
                  ; {exp = (), ty = Types.BOTTOM}
