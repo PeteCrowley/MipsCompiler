@@ -12,8 +12,13 @@ struct
     val outermost = EMPTY
     val newLevel = 
         let
-        fun f {parent: level, name: Temp.label, formals: bool list} = 
-            NODE(parent, Frame.newFrame {name = name, formals = formals}, ref ())
+            fun f {parent: level, name: Temp.label, formals: bool list} = 
+                let
+                  val formalsAndStaticLink = true :: formals
+                in
+                  NODE(parent, Frame.newFrame {name = name, formals = formalsAndStaticLink}, ref ())
+                end
+                
         in
             f
         end
@@ -24,7 +29,9 @@ struct
                 val frame = case level of
                     EMPTY => raise Fail "Outermost level has no frame"
                     | NODE (_, frame, _) => frame
-                val frameFormals = Frame.formals frame
+                val frameFormals = case Frame.formals frame of
+                                        [] => raise Fail "Frame has no frame pointer stored"
+                                        | fp::rest => rest
                 val translateFormals = List.map (fn access => (level, access)) frameFormals
                 in
                     translateFormals
