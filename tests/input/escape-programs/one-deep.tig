@@ -1,0 +1,11 @@
+let
+    function main(x:int) = (
+        let 
+            function plus5(y: int): int = x + y
+        in
+            (plus5(5); ())
+        end
+    )
+in
+    main(5)
+end

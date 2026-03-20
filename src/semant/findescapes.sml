@@ -1,24 +1,67 @@
 structure FindEscape:
+(* Values escape and are written to memory only when necessary for these reasons:
+ * The var is passed by reference
+ * The var is accessed by a procedure nested within the current one
+ * The value is too big to fit in a single register
+ * The var is an array, for which address math is needed
+ * The reg holding the var is needed for param passing
+ * Too many local/temp vars, which need to be spilled into the frame
+ *)
 sig
   val findEscape: Absyn.exp -> unit
+  val printEscapes: bool ref
 end =
 struct
+  val printEscapes = ref false
+
   type depth = int
   type escEnv = (depth * bool ref) Symbol.table
 
   fun symbolEscapes (env: escEnv, d: depth, sym: Symbol.symbol) : unit =
     case Symbol.look (env, sym) of
-      SOME (envDepth, escapes) => (if d > envDepth then escapes := true else ())
+      SOME (envDepth, escapes) =>
+        (if d > envDepth then
+           ( escapes := true
+           ; if !printEscapes then print (Symbol.name sym ^ " escapes\n")
+             else ()
+           )
+         else
+           ())
     | NONE => ()
+
+  fun markSymbolEscape (env: escEnv, d: depth, sym: Symbol.symbol) : escEnv =
+    ( if !printEscapes then print (Symbol.name sym ^ " escapes\n") else ()
+    ; (case Symbol.look (env, sym) of
+         SOME (envDepth, escapes) => (escapes := true; env)
+       (* this case should never be hit. *)
+       | NONE => Symbol.enter (env, sym, (d, ref true)))
+    )
+
+  (* mark the "parent" var of a field or subscript as escaping *)
+  fun markVarEscape (env: escEnv, d: depth, var: Absyn.var) : escEnv =
+    case var of
+      Absyn.SimpleVar (sym, _) => markSymbolEscape (env, d, sym)
+    (* a.b.c.d, d is just an offset from a memory location. Everything else
+     * escapes. *)
+    | Absyn.FieldVar (_, sym, _) => markSymbolEscape (env, d, sym)
+    (* a[0][0], the exp will be checked. mark the var *)
+    | Absyn.SubscriptVar (arrVar, exp, _) => markVarEscape (env, d, arrVar)
 
   fun traverseVar (env: escEnv, d: depth, s: Absyn.var) : unit =
     case s of
       Absyn.SimpleVar (sym, _) => symbolEscapes (env, d, sym)
-    (* a.b.c.d, we should only worry about a escaping? *)
-    | Absyn.FieldVar (var, _, _) => traverseVar (env, d, var)
-    (* a[b[0]], we need to check both b and a for escape *)
+    (* a.b.c.d, d is just an offset from a memory location. Everything else
+     * escapes. *)
+    | Absyn.FieldVar (var, _, _) =>
+        let val fvEnv = markVarEscape (env, d, var)
+        in traverseVar (fvEnv, d, var)
+        end
+    (* a[b[0]], a and b should both escape, being arrays, but we should check
+     * them anyway *)
     | Absyn.SubscriptVar (var, exp, _) =>
-        (traverseExp (env, d, exp); traverseVar (env, d, var))
+        let val svEnv = markVarEscape (env, d, var)
+        in (traverseExp (env, d, exp); traverseVar (svEnv, d, var))
+        end
 
   and traverseExp (env: escEnv, d: depth, s: Absyn.exp) : unit =
     case s of
