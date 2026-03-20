@@ -2,7 +2,7 @@ structure MipsFrame: FRAME =
 struct
   datatype access = InFrame of int | InReg of Temp.temp
   type frame =
-    {name: Temp.label, formals: access list, num_locals_in_frame: int ref}
+    {name: Temp.label, formals: access list, numLocalsInFrame: int ref}
 
   fun name (frame: frame) = #name frame
 
@@ -13,16 +13,20 @@ struct
 
   fun formals (frame: frame) = (#formals frame)
 
+  val argRegisterCount = 4
+
   fun newFrame {name: Temp.label, formals: bool list} =
     let
-      fun oneFormalToAccess (true, (offset, formals)) =
-            (offset + 4, (InFrame offset) :: formals)
-        | oneFormalToAccess (false, (offset, formals)) =
-            (offset, (InReg (Temp.newtemp ())) :: formals)
-      val (numBytesForFormals, accesses) =
-        foldr oneFormalToAccess (0, []) formals
+      fun oneFormalToAccess (true, (offset, formals, numRegArgs)) =
+            (offset + 4, (InFrame offset) :: formals, numRegArgs)
+        | oneFormalToAccess (false, (offset, formals, numRegArgs)) =
+            if numRegArgs < argRegisterCount  (* only 4 parameters can be passed in a0-a3 *)
+              then (offset, (InReg (Temp.newtemp ())) :: formals, numRegArgs + 1)
+              else (offset + 4, (InFrame offset) :: formals, numRegArgs)
+      val (numBytesForFormals, accesses, numRegArgs) =
+        foldr oneFormalToAccess (0, [], 0) formals
     in
-      {name = name, formals = accesses, num_locals_in_frame = ref 0}
+      {name = name, formals = accesses, numLocalsInFrame = ref 0}
     end
 
   fun allocLocal (frame: frame) =
@@ -31,7 +35,7 @@ struct
             InReg (Temp.newtemp ())
         | allocLocalForFrame (true) =
             let
-              val inFrameRef = #num_locals_in_frame frame
+              val inFrameRef = #numLocalsInFrame frame
               val _ = inFrameRef := !inFrameRef + 1
             in
               InFrame (!inFrameRef * ~4)
