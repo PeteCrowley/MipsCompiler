@@ -7,8 +7,8 @@ sig
   type tenv
 
   val transVar: venv * tenv * Absyn.var -> expty
-  val transExp: (venv * bool) * tenv -> Absyn.exp -> expty
-  val transDec: venv * tenv * Absyn.dec -> {venv: venv, tenv: tenv}
+  val transExp: (venv * bool) * tenv * Translate.level -> Absyn.exp -> expty
+  val transDec: venv * tenv * Absyn.dec * Translate.level -> {venv: venv, tenv: tenv}
   val transTy: tenv * Absyn.ty -> Types.ty
 
 end =
@@ -103,9 +103,9 @@ struct
     else
       ErrorMsg.error pos "incompatible types in comparison"
 
-  fun transDec (venv: Env.enventry Symbol.table, tenv, Absyn.VarDec {name, escape, typ, init, pos}) =
+  fun transDec (venv: Env.enventry Symbol.table, tenv, Absyn.VarDec {name, escape, typ, init, pos}, level) =
         let
-          val {exp = e, ty = exp_ty} = transExp ((venv, false), tenv) init
+          val {exp = e, ty = exp_ty} = transExp ((venv, false), tenv, level) init
           val type_annotation =
             case typ of
               SOME (t_symbol, _) =>
@@ -117,6 +117,7 @@ struct
                      ; NONE
                      ))
             | NONE => NONE
+          val access = Translate.allocLocal level (!escape) 
 
         in
           (* redeclarations "hide" the previous declaration, regardless of type *)
@@ -127,20 +128,20 @@ struct
                     ("Type mismatch between for var dec " ^ Symbol.name name
                      ^ " between type annotation " ^ Types.typeToString t
                      ^ " and init expr of type " ^ Types.typeToString exp_ty)
-                ; {tenv = tenv, venv = Symbol.enter (venv, name, Types.BOTTOM)}
+                ; {tenv = tenv, venv = Symbol.enter (venv, name, Env.VarEntry{access=access, ty=Types.BOTTOM})}
                 )
               else
-                {tenv = tenv, venv = Symbol.enter (venv, name, t)}
+                {tenv = tenv, venv = Symbol.enter (venv, name, Env.VarEntry{access=access, ty=t})}
           | NONE =>
               if areTypesEqual (exp_ty, Types.NIL) then
                 ( ErrorMsg.error pos
                     ("Init expression for nil must have type annotation")
-                ; {tenv = tenv, venv = Symbol.enter (venv, name, Types.BOTTOM)}
+                ; {tenv = tenv, venv = Symbol.enter (venv, name, Env.VarEntry{access=access, ty=Types.BOTTOM})}
                 )
               else
-                {tenv = tenv, venv = Symbol.enter (venv, name, exp_ty)}
+                {tenv = tenv, venv = Symbol.enter (venv, name, Env.VarEntry{access=access, ty=exp_ty})}
         end
-    | transDec (venv, tenv, Absyn.TypeDec dec_list) =
+    | transDec (venv, tenv, Absyn.TypeDec dec_list, level) =
         let
           fun readInTypeName ({name, ty, pos}, nameTable) =
             let
@@ -317,7 +318,7 @@ struct
         in
           {venv = venv, tenv = newTenv}
         end
-    | transDec (venv, tenv, Absyn.FunctionDec dec_list) =
+    | transDec (venv, tenv, Absyn.FunctionDec dec_list, level) =
         let
           fun getParamTypes ({name, escape, typ, pos}, acc) =
             let
@@ -338,6 +339,7 @@ struct
             ({body, name, params, pos, result}, (venv', nameEnv)) =
             let
               val fieldTypeList = foldr getParamTypes [] params
+              val paramEscapes = List.map (fn p => !(#escape p)) params
               val returnType =
                 case result of
                   SOME (t_symbol, _) =>
@@ -356,15 +358,16 @@ struct
                       ("Duplicate function names " ^ Symbol.name name
                        ^ " in function declaration group")
                 | NONE => ()
+              val funEntry = Env.getFunEntry (level, Types.ARROW (fieldTypeList, returnType), paramEscapes)
             in
               ( Symbol.enter
-                  (venv', name, Types.ARROW (fieldTypeList, returnType))
+                  (venv', name, funEntry)
               , Symbol.enter (nameEnv, name, 1)
               )
             end
 
           (* A lot of code duplication from getParamTypes but it's probably fine *)
-          fun addParamTypesToVenv ({name, escape, typ, pos}, venv') =
+          fun addParamTypesToVenv ((access, {name, escape, typ, pos}), (funcLevel, venv')) =
             let
               val paramType =
                 case Symbol.look (tenv, typ) of
@@ -376,22 +379,24 @@ struct
                     ; Types.BOTTOM
                     )
             in
-              Symbol.enter (venv', name, paramType)
+              (funcLevel, Symbol.enter (venv', name, Env.VarEntry{access=access, ty= paramType}))
             end
 
           fun typeCheckFunction ({body, name, params, pos, result}, venv') =
             let
-              val functionVenv = foldl addParamTypesToVenv venv' params
-              val returnType =
-                case Symbol.look (venv', name) of
-                  SOME (Env.FunEntry{level, label, ty=Types.ARROW (fl, retType)}) => retType
-                | _ =>
-                    ( ErrorMsg.error pos
-                        ("Undefined function " ^ Symbol.name name)
-                    ; Types.BOTTOM
-                    ) (* Should never hit this case *)
+              val (funLevel, returnType) =
+                  case Symbol.look (venv', name) of
+                    SOME (Env.FunEntry{level=lv, label, ty=Types.ARROW (fl, retType)}) => (lv, retType)
+                  | _ =>
+                      ( ErrorMsg.error pos
+                          ("Undefined function " ^ Symbol.name name)
+                      ; (level, Types.BOTTOM)
+                      ) (* Should never hit this case *)
+              val paramAccesses = Translate.formals funLevel
+              val (_, functionVenv) = foldl addParamTypesToVenv (funLevel, venv') (ListPair.zip(paramAccesses, params))
+              
               val {exp = e, ty = bodyType} =
-                transExp ((functionVenv, false), tenv) body
+                transExp ((functionVenv, false), tenv, level) body
             in
               if
                 not (isSubtype (bodyType, returnType))
@@ -419,7 +424,7 @@ struct
           {tenv = tenv, venv = venvWithFunctionGroup}
         end
 
-  and transExp ((venv, isLoop), tenv) =
+  and transExp ((venv, isLoop), tenv, level) =
     let
       fun checkExp (Absyn.VarExp var) =
             let val {exp = e, ty = ty} = trvar var
@@ -609,7 +614,7 @@ struct
         | checkExp (Absyn.WhileExp {test, body, pos}) =
             ( checkInt (checkExp test, pos)
             (*call transexp, because we need to set isLoop to true!*)
-            ; case transExp ((venv, true), tenv) body of
+            ; case transExp ((venv, true), tenv, level) body of
                 {exp = _, ty = Types.UNIT} => ()
               | _ =>
                   ErrorMsg.error pos
@@ -619,11 +624,12 @@ struct
 
         | checkExp (Absyn.ForExp {var, escape, lo, hi, body, pos}) =
             let
-              val newVenv = Symbol.enter (venv, var, Types.READ_ONLY_INT)
+              val access = Translate.allocLocal level (!escape)
+              val newVenv = Symbol.enter (venv, var, Env.VarEntry{access=access, ty=Types.READ_ONLY_INT})
             in
               checkInt (checkExp lo, pos);
               checkInt (checkExp hi, pos);
-              case transExp ((newVenv, true), tenv) body of
+              case transExp ((newVenv, true), tenv, level) body of
                 {exp = _, ty = Types.UNIT} => ()
               | _ =>
                   ErrorMsg.error pos "Body of for loop produces non-unit value";
@@ -638,11 +644,11 @@ struct
               )
         | checkExp (Absyn.LetExp {decs, body, pos}) =
             let
-              fun processDec (dec, {venv = v, tenv = t}) = transDec (v, t, dec)
+              fun processDec (dec, {venv = v, tenv = t}) = transDec (v, t, dec, level)
               val {venv = new_venv, tenv = new_tenv} =
                 foldl processDec {venv = venv, tenv = tenv} decs
             in
-              transExp ((new_venv, false), new_tenv) body
+              transExp ((new_venv, false), new_tenv, level) body
             end
         | checkExp (Absyn.ArrayExp {typ, size, init, pos}) =
             let
@@ -740,6 +746,8 @@ struct
     end
 
   fun transProg exp =
-    let in transExp (Env.base_venv, Env.base_tenv) exp; ()
+    let val mainLevel = Translate.newLevel {parent = Translate.outermost, name = Temp.newlabel (), formals = []}
+    in 
+      transExp (Env.base_venv, Env.base_tenv, mainLevel) exp; ()
     end
 end
