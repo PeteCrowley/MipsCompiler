@@ -96,11 +96,13 @@ struct
 
     fun getDummyExp () = Ex (Tree.CONST 0)
 
-    fun simpleVar ((accLev, frameAcc), level) = 
+    fun simpleVar (((accParentLev, accFrame, accUq), frameAcc), level) = 
         let
-          fun followStaticLinks level = ...
+          fun followStaticLinks ((_, _, uq), currFpAddr) = 
+            if accUq = uq then currFpAddr else Tree.MEM(Tree.BINOP(Tree.PLUS, Tree.CONST 0, Tree.MEM currFpAddr))
+          val framePointerAddrExp = followStaticLinks level
         in
-          (* call Frame.exp here *)
+          Frame.exp frameAcc framePointerAddrExp
         end
 
 end
