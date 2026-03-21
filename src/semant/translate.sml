@@ -96,4 +96,11 @@ struct
 
     fun getDummyExp () = Ex (Tree.CONST 0)
 
+    fun simpleVar ((accLev, frameAcc), level) = 
+        let
+          fun followStaticLinks level = ...
+        in
+          (* call Frame.exp here *)
+        end
+
 end

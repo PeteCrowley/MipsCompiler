@@ -6,4 +6,7 @@ sig
   val name: frame -> Temp.label
   val formals: frame -> access list
   val allocLocal: frame -> bool -> access
+  val FP: Temp.temp
+  val wordsize: int
+  val exp : access -> Tree.exp -> Tree.exp
 end

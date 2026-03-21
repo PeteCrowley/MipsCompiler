@@ -4,6 +4,9 @@ struct
   type frame =
     {name: Temp.label, formals: access list, numLocalsInFrame: int ref}
 
+  val FP = Temp.newtemp()
+  val wordsize = 4
+
   fun name (frame: frame) = #name frame
 
   fun access_escapes (access: access) =
@@ -14,20 +17,6 @@ struct
   fun formals (frame: frame) = (#formals frame)
 
   val argRegisterCount = 4
-
-  fun newFrame {name: Temp.label, formals: bool list} =
-    let
-      fun oneFormalToAccess (true, (offset, formals, numRegArgs)) =
-            (offset + 4, (InFrame offset) :: formals, numRegArgs)
-        | oneFormalToAccess (false, (offset, formals, numRegArgs)) =
-            if numRegArgs < argRegisterCount  (* only 4 parameters can be passed in a0-a3 *)
-              then (offset, (InReg (Temp.newtemp ())) :: formals, numRegArgs + 1)
-              else (offset + 4, (InFrame offset) :: formals, numRegArgs)
-      val (numBytesForFormals, accesses, numRegArgs) =
-        foldr oneFormalToAccess (0, [], 0) formals
-    in
-      {name = name, formals = accesses, numLocalsInFrame = ref 0}
-    end
 
   fun allocLocal (frame: frame) =
     let
@@ -44,4 +33,21 @@ struct
       allocLocalForFrame
     end
 
+  fun exp (InFrame k) framePtrAddr = Tree.MEM(Tree.BINOP(Tree.PLUS, framePtrAddr, Tree.CONST k))
+    | exp (InReg t) _ = Tree.TEMP t
+    
+
+  fun newFrame {name: Temp.label, formals: bool list} =
+    let
+      fun oneFormalToAccess (true, (offset, formals, numRegArgs)) =
+            (offset + 4, (InFrame offset) :: formals, numRegArgs)
+        | oneFormalToAccess (false, (offset, formals, numRegArgs)) =
+            if numRegArgs < argRegisterCount  (* only 4 parameters can be passed in a0-a3 *)
+              then (offset, (InReg (Temp.newtemp ())) :: formals, numRegArgs + 1)
+              else (offset + 4, (InFrame offset) :: formals, numRegArgs)
+      val (numBytesForFormals, accesses, numRegArgs) =
+        foldr oneFormalToAccess (0, [], 0) formals
+    in
+      {name = name, formals = accesses, numLocalsInFrame = ref 0}
+    end
 end
