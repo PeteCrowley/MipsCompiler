@@ -735,6 +735,9 @@ struct
     end
 
   fun transProg exp =
-    let in transExp (Env.base_venv, Env.base_tenv) exp; ()
+    let 
+      val () = FindEscape.findEscape exp
+    in 
+      transExp (Env.base_venv, Env.base_tenv) exp; ()
     end
 end
