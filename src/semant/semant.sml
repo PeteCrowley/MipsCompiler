@@ -18,7 +18,7 @@ struct
   type tenv = Types.ty Symbol.table
 
 
-  fun transVar (venv, tenv, var) = {exp = (), ty = Types.BOTTOM}
+  fun transVar (venv, tenv, var) = {exp = Translate.getDummyExp(), ty = Types.BOTTOM}
 
   fun transTy (tenv, ty) = Types.BOTTOM
 
@@ -428,11 +428,11 @@ struct
     let
       fun checkExp (Absyn.VarExp var) =
             let val {exp = e, ty = ty} = trvar var
-            in {exp = (), ty = ty}
+            in {exp = Translate.getDummyExp(), ty = ty}
             end
-        | checkExp Absyn.NilExp = {exp = (), ty = Types.NIL}
-        | checkExp (Absyn.IntExp _) = {exp = (), ty = Types.INT}
-        | checkExp (Absyn.StringExp (_, _)) = {exp = (), ty = Types.STRING}
+        | checkExp Absyn.NilExp = {exp = Translate.getDummyExp(), ty = Types.NIL}
+        | checkExp (Absyn.IntExp _) = {exp = Translate.getDummyExp(), ty = Types.INT}
+        | checkExp (Absyn.StringExp (_, _)) = {exp = Translate.getDummyExp(), ty = Types.STRING}
 
         | checkExp
             (Absyn.CallExp
@@ -486,15 +486,15 @@ struct
                    val typesMatch = typeCheckArgs (arg_tylist, fargs, true)
                  in
                    if typesMatch then
-                     {exp = (), ty = ret}
+                     {exp = Translate.getDummyExp(), ty = ret}
                    else
                      (* Type error already emitted *)
-                     {exp = (), ty = Types.NIL}
+                     {exp = Translate.getDummyExp(), ty = Types.NIL}
                  end
              | _ =>
                  ( ErrorMsg.error pos
                      ("Undefined function " ^ (Symbol.name func))
-                 ; {exp = (), ty = Types.NIL}
+                 ; {exp = Translate.getDummyExp(), ty = Types.NIL}
                  ))
 
         | checkExp (Absyn.OpExp {left, oper, right, pos}) =
@@ -507,7 +507,7 @@ struct
                   checkOrderable (checkExp left, checkExp right, pos)
               | (Absyn.EqOp | Absyn.NeqOp) =>
                   checkEqualable (checkExp left, checkExp right, pos)
-            ; {exp = (), ty = Types.INT}
+            ; {exp = Translate.getDummyExp(), ty = Types.INT}
             )
         | checkExp (Absyn.RecordExp {fields, typ, pos}) =
             (case Symbol.look (tenv, typ) of
@@ -560,15 +560,15 @@ struct
                  in
                    (* condition 3: all the expected fields must be provided with the correct expression type *)
                    checkRecordFields (fields, expectedFieldList);
-                   {exp = (), ty = Types.RECORD rec_type}
+                   {exp = Translate.getDummyExp(), ty = Types.RECORD rec_type}
                  end
              | _ =>
                  ( ErrorMsg.error pos "Undefined record type"
-                 ; {exp = (), ty = Types.NIL}
+                 ; {exp = Translate.getDummyExp(), ty = Types.NIL}
                  ))
         | checkExp (Absyn.SeqExp explist) =
             (case explist of
-               [] => {exp = (), ty = Types.UNIT}
+               [] => {exp = Translate.getDummyExp(), ty = Types.UNIT}
              | [(expr, pos)] => checkExp expr
              | (expr, pos) :: rest =>
                  (checkExp expr; checkExp (Absyn.SeqExp rest)))
@@ -589,7 +589,7 @@ struct
                 ErrorMsg.error pos
                   ("Cannot assign " ^ Types.typeToString expr_ty ^ " to "
                    ^ Types.typeToString var_ty);
-              {exp = (), ty = Types.UNIT}
+              {exp = Translate.getDummyExp(), ty = Types.UNIT}
             end
 
         | checkExp (Absyn.IfExp {test, then', else', pos}) =
@@ -598,7 +598,7 @@ struct
               val {exp = _, ty = else_ty} =
                 case else' of
                   SOME else_exp => checkExp else_exp
-                | NONE => {exp = (), ty = Types.UNIT}
+                | NONE => {exp = Translate.getDummyExp(), ty = Types.UNIT}
             in
               checkInt ((checkExp test), pos);
               if isTypeMismatch (then_ty, else_ty) then
@@ -608,7 +608,7 @@ struct
                    ^ Types.typeToString else_ty)
               else
                 ();
-              {exp = (), ty = leastUpperBound (then_ty, else_ty)}
+              {exp = Translate.getDummyExp(), ty = leastUpperBound (then_ty, else_ty)}
             end
 
         | checkExp (Absyn.WhileExp {test, body, pos}) =
@@ -619,7 +619,7 @@ struct
               | _ =>
                   ErrorMsg.error pos
                     "Body of while loop produces non-unit value"
-            ; {exp = (), ty = Types.UNIT}
+            ; {exp = Translate.getDummyExp(), ty = Types.UNIT}
             )
 
         | checkExp (Absyn.ForExp {var, escape, lo, hi, body, pos}) =
@@ -633,14 +633,14 @@ struct
                 {exp = _, ty = Types.UNIT} => ()
               | _ =>
                   ErrorMsg.error pos "Body of for loop produces non-unit value";
-              {exp = (), ty = Types.UNIT}
+              {exp = Translate.getDummyExp(), ty = Types.UNIT}
             end
         | checkExp (Absyn.BreakExp pos) =
             if isLoop then
-              {exp = (), ty = Types.BOTTOM}
+              {exp = Translate.getDummyExp(), ty = Types.BOTTOM}
             else
               ( ErrorMsg.error pos "Break present outside of loop"
-              ; {exp = (), ty = Types.BOTTOM}
+              ; {exp = Translate.getDummyExp(), ty = Types.BOTTOM}
               )
         | checkExp (Absyn.LetExp {decs, body, pos}) =
             let
@@ -664,35 +664,35 @@ struct
                           ^ Types.typeToString initType
                           ^ " incorrect type for array of type "
                           ^ Symbol.name typ)
-                     ; {exp = (), ty = Types.BOTTOM}
+                     ; {exp = Translate.getDummyExp(), ty = Types.BOTTOM}
                      )
                    else
-                     {exp = (), ty = Types.ARRAY (typeInArr, uq)})
+                     {exp = Translate.getDummyExp(), ty = Types.ARRAY (typeInArr, uq)})
               | SOME t =>
                   ( ErrorMsg.error pos
                       ("Tried to initialize array with non-array type "
                        ^ Symbol.name typ)
-                  ; {exp = (), ty = Types.BOTTOM}
+                  ; {exp = Translate.getDummyExp(), ty = Types.BOTTOM}
                   )
               | NONE =>
                   ( ErrorMsg.error pos
                       ("Tried to initialize array with undefined type "
                        ^ Symbol.name typ)
-                  ; {exp = (), ty = Types.BOTTOM}
+                  ; {exp = Translate.getDummyExp(), ty = Types.BOTTOM}
                   )
             end
-      (* | checkExp _ = {exp = (), ty = Types.BOTTOM} *)
+      (* | checkExp _ = {exp = Translate.getDummyExp(), ty = Types.BOTTOM} *)
       and trvar (Absyn.SimpleVar (id, pos)) =
             (case Symbol.look (venv, id) of
-               SOME (Env.VarEntry {access, ty}) => {exp = (), ty = ty}
+               SOME (Env.VarEntry {access, ty}) => {exp = Translate.getDummyExp(), ty = ty}
              | SOME (Env.FunEntry {level, label, ty}) =>
                  ( ErrorMsg.error pos
                      ("function name " ^ Symbol.name id ^ " used as variable")
-                 ; {exp = (), ty = Types.BOTTOM}
+                 ; {exp = Translate.getDummyExp(), ty = Types.BOTTOM}
                  )
              | NONE =>
                  ( ErrorMsg.error pos ("undefined variable " ^ Symbol.name id)
-                 ; {exp = (), ty = Types.BOTTOM}
+                 ; {exp = Translate.getDummyExp(), ty = Types.BOTTOM}
                  ))
         | trvar (Absyn.FieldVar (v, id, pos)) =
             let
@@ -706,19 +706,19 @@ struct
                     val matching_id = List.find do_ids_match rec_fields
                   in
                     case matching_id of
-                      SOME (_, typ) => {exp = (), ty = typ}
+                      SOME (_, typ) => {exp = Translate.getDummyExp(), ty = typ}
                     | NONE =>
                         ( ErrorMsg.error pos
                             ("field " ^ Symbol.name id
                              ^ " not found on record type")
-                        ; {exp = (), ty = Types.BOTTOM}
+                        ; {exp = Translate.getDummyExp(), ty = Types.BOTTOM}
                         )
                   end
               | t =>
                   ( ErrorMsg.error pos
                       ("dot of field " ^ Symbol.name id ^ " on non-record type "
                        ^ Types.typeToString t)
-                  ; {exp = (), ty = Types.BOTTOM}
+                  ; {exp = Translate.getDummyExp(), ty = Types.BOTTOM}
                   )
             end
         | trvar (Absyn.SubscriptVar (v, exp, pos)) =
@@ -732,12 +732,12 @@ struct
                   ()
             in
               case ty of
-                Types.ARRAY (t, uq) => {exp = (), ty = t}
+                Types.ARRAY (t, uq) => {exp = Translate.getDummyExp(), ty = t}
               | t =>
                   ( ErrorMsg.error pos
                       ("subscript of variable of non-array type "
                        ^ Types.typeToString t)
-                  ; {exp = (), ty = Types.BOTTOM}
+                  ; {exp = Translate.getDummyExp(), ty = Types.BOTTOM}
                   ) (* could make this message more useful *)
             end
 

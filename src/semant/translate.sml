@@ -94,4 +94,6 @@ struct
         | unCx (Nx _) = (fn (t, f) => Tree.EXP(Tree.CONST 0)) (* never hit *)
         | unCx (Cx genstm) = genstm
 
+    fun getDummyExp () = Ex (Tree.CONST 0)
+
 end
