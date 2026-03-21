@@ -1,0 +1,6 @@
+let
+    type intlist = {head: int, tail: intlist}
+    var l := intlist{head=0, tail=intlist{head=1, tail=nil}}
+in
+    l.tail.head
+end

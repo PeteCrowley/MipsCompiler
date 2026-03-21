@@ -74,7 +74,7 @@ ty: ID (Absyn.NameTy (Symbol.symbol ID, IDleft))
   
 tyfields: ID COLON ID tyfields_tail ({
     name = Symbol.symbol ID1, 
-    escape = ref true,
+    escape = ref false,
     typ = Symbol.symbol ID2,
     pos = ID1left
   } :: tyfields_tail)
@@ -83,7 +83,7 @@ tyfields: ID COLON ID tyfields_tail ({
 tyfields_tail: (* EMPTY *) ([])
               | COMMA ID COLON ID tyfields_tail ({
     name = Symbol.symbol ID1,
-    escape = ref true,
+    escape = ref false,
     typ = Symbol.symbol ID2,
     pos = ID1left
   } :: tyfields_tail)
@@ -91,14 +91,14 @@ tyfields_tail: (* EMPTY *) ([])
 (* Variable Declarations *)
 vardec: VAR ID ASSIGN expression (Absyn.VarDec {
     name = Symbol.symbol ID,
-    escape = ref true,
+    escape = ref false,
     typ = NONE,
     init = expression,
     pos = VARleft
   })
         | VAR ID COLON ID ASSIGN expression (Absyn.VarDec {
     name = Symbol.symbol ID1,
-    escape = ref true,
+    escape = ref false,
     typ = SOME (Symbol.symbol ID2, ID2left),
     init = expression,
     pos = VARleft
@@ -170,7 +170,7 @@ expression: boolean_expr (boolean_expr)
               })
             | FOR ID ASSIGN expression TO expression DO expression (Absyn.ForExp {
                 var = Symbol.symbol ID,
-                escape = ref true,
+                escape = ref false,
                 lo = expression1,
                 hi = expression2,
                 body = expression3,

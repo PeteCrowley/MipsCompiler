@@ -49,6 +49,19 @@ struct
     end
     handle Fail msg => print ("Program raised Fail: " ^ msg)
 
+  fun escape (input, output) =
+    let
+      val absyn = Parse.parse input
+      (* val outputFile = TextIO.openOut output *)
+      fun do_it () =
+        (FindEscape.printEscapes := true; FindEscape.findEscape absyn)
+    in
+      IOUtil.withOutputFile (output, do_it) ()
+    (* PrintExpty.print (outputFile, expty); *)
+    (* TextIO.closeOut outputFile *)
+    end
+    handle Fail msg => print ("Program raised Fail: " ^ msg)
+
   val allTests =
     [ { test_name = "echo"
       , test_dirs = ["appel-programs", "lexer-programs"]
@@ -66,5 +79,6 @@ struct
       , test_dirs = ["typecheck-programs", "appel-programs"]
       , test_fn = typecheck
       }
+    , {test_name = "escape", test_dirs = ["escape-programs"], test_fn = escape}
     ]
 end
