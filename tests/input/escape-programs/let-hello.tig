@@ -1,0 +1,6 @@
+let
+    var hello := 5
+    function f():int = (hello)
+in
+f()
+end
