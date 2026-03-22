@@ -10,5 +10,9 @@ sig
     val allocLocal : level -> bool -> access
     val getDummyExp: unit -> exp
     val simpleVar : access * level -> exp
+    val intExp : int -> exp
+    val assignExp : exp * exp -> exp
+    val printTree : exp -> unit
+    val expList : exp list -> exp
 end
 

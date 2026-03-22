@@ -1,14 +1,16 @@
 structure Semant:
 sig
-  val transProg: Absyn.exp -> unit
+  
 
   type expty
   type venv
   type tenv
+  val transProg: Absyn.exp -> expty
+  val printIrTree: Absyn.exp -> unit
 
   val transVar: venv * tenv * Absyn.var -> expty
   val transExp: (venv * bool) * tenv * Translate.level -> Absyn.exp -> expty
-  val transDec: venv * tenv * Absyn.dec * Translate.level -> {venv: venv, tenv: tenv}
+  val transDec: venv * tenv * Absyn.dec * Translate.level -> {venv: venv, tenv: tenv, exp: Translate.exp option}
   val transTy: tenv * Absyn.ty -> Types.ty
 
 end =
@@ -118,28 +120,33 @@ struct
                      ))
             | NONE => NONE
           val access = Translate.allocLocal level (!escape) 
-
-        in
+          (* keep the expression quick and dirty to just handle simplevars for now *)
+          (* will have to be fancier to handle record and array inits later *)
+          val varInitExp = Translate.assignExp (Translate.simpleVar (access, level), e)
+          
           (* redeclarations "hide" the previous declaration, regardless of type *)
-          case type_annotation of
+          val newVenv = case type_annotation of
             SOME t =>
               if not (isSubtype (exp_ty, t)) then
                 ( ErrorMsg.error pos
                     ("Type mismatch between for var dec " ^ Symbol.name name
                      ^ " between type annotation " ^ Types.typeToString t
                      ^ " and init expr of type " ^ Types.typeToString exp_ty)
-                ; {tenv = tenv, venv = Symbol.enter (venv, name, Env.VarEntry{access=access, ty=Types.BOTTOM})}
+                ; Symbol.enter (venv, name, Env.VarEntry{access=access, ty=Types.BOTTOM})
                 )
               else
-                {tenv = tenv, venv = Symbol.enter (venv, name, Env.VarEntry{access=access, ty=t})}
+                Symbol.enter (venv, name, Env.VarEntry{access=access, ty=t})
           | NONE =>
               if areTypesEqual (exp_ty, Types.NIL) then
                 ( ErrorMsg.error pos
                     ("Init expression for nil must have type annotation")
-                ; {tenv = tenv, venv = Symbol.enter (venv, name, Env.VarEntry{access=access, ty=Types.BOTTOM})}
+                ; Symbol.enter (venv, name, Env.VarEntry{access=access, ty=Types.BOTTOM})
                 )
               else
-                {tenv = tenv, venv = Symbol.enter (venv, name, Env.VarEntry{access=access, ty=exp_ty})}
+                Symbol.enter (venv, name, Env.VarEntry{access=access, ty=exp_ty})
+
+        in
+          {venv = newVenv, tenv = tenv, exp = SOME varInitExp}
         end
     | transDec (venv, tenv, Absyn.TypeDec dec_list, level) =
         let
@@ -316,7 +323,7 @@ struct
             foldl parseTypeHelper (tenv, typeNameTable) dec_list
 
         in
-          {venv = venv, tenv = newTenv}
+          {venv = venv, tenv = newTenv, exp = NONE}
         end
     | transDec (venv, tenv, Absyn.FunctionDec dec_list, level) =
         let
@@ -420,18 +427,17 @@ struct
           val () =
             List.app (fn dec => typeCheckFunction (dec, venvWithFunctionGroup))
               dec_list
+
+            (* will want to generate the expression for the function here later, leaving as NONE for now*)
         in
-          {tenv = tenv, venv = venvWithFunctionGroup}
+          {tenv = tenv, venv = venvWithFunctionGroup, exp = NONE}
         end
 
   and transExp ((venv, isLoop), tenv, level) =
     let
-      fun checkExp (Absyn.VarExp var) =
-            let val {exp = e, ty = ty} = trvar var
-            in {exp = Translate.getDummyExp(), ty = ty}
-            end
+      fun checkExp (Absyn.VarExp var) = trvar var
         | checkExp Absyn.NilExp = {exp = Translate.getDummyExp(), ty = Types.NIL}
-        | checkExp (Absyn.IntExp _) = {exp = Translate.getDummyExp(), ty = Types.INT}
+        | checkExp (Absyn.IntExp i) = {exp = Translate.intExp i, ty = Types.INT}
         | checkExp (Absyn.StringExp (_, _)) = {exp = Translate.getDummyExp(), ty = Types.STRING}
 
         | checkExp
@@ -589,7 +595,7 @@ struct
                 ErrorMsg.error pos
                   ("Cannot assign " ^ Types.typeToString expr_ty ^ " to "
                    ^ Types.typeToString var_ty);
-              {exp = Translate.getDummyExp(), ty = Types.UNIT}
+              {exp = Translate.assignExp(e2, e1), ty = Types.UNIT}
             end
 
         | checkExp (Absyn.IfExp {test, then', else', pos}) =
@@ -644,11 +650,18 @@ struct
               )
         | checkExp (Absyn.LetExp {decs, body, pos}) =
             let
-              fun processDec (dec, {venv = v, tenv = t}) = transDec (v, t, dec, level)
-              val {venv = new_venv, tenv = new_tenv} =
-                foldl processDec {venv = venv, tenv = tenv} decs
+              fun processDec (dec, {venv = v, tenv = t, expList}) = case transDec (v, t, dec, level) of
+                    {venv = v', tenv = t', exp = SOME e} => {venv = v', tenv = t', expList = e :: expList}
+                  | {venv = v', tenv = t', exp = NONE} => {venv = v', tenv = t', expList = expList}
+              val {venv = new_venv, tenv = new_tenv, expList} =
+                foldl processDec {venv = venv, tenv = tenv, expList = []} decs
+              val {exp = bodyExp, ty = bodyTy} = transExp ((new_venv, false), new_tenv, level) body
+              (* let translates to a sequence of declarations followed by body *)
+              val exprSeq = case expList of
+                [] => Translate.getDummyExp()
+              | _ => Translate.expList (List.rev (bodyExp::expList))
             in
-              transExp ((new_venv, false), new_tenv, level) body
+              {exp = exprSeq, ty = bodyTy}
             end
         | checkExp (Absyn.ArrayExp {typ, size, init, pos}) =
             let
@@ -684,7 +697,7 @@ struct
       (* | checkExp _ = {exp = Translate.getDummyExp(), ty = Types.BOTTOM} *)
       and trvar (Absyn.SimpleVar (id, pos)) =
             (case Symbol.look (venv, id) of
-               SOME (Env.VarEntry {access, ty}) => {exp = Translate.getDummyExp(), ty = ty}
+               SOME (Env.VarEntry {access, ty}) => {exp = Translate.simpleVar (access, level), ty = ty}
              | SOME (Env.FunEntry {level, label, ty}) =>
                  ( ErrorMsg.error pos
                      ("function name " ^ Symbol.name id ^ " used as variable")
@@ -749,7 +762,13 @@ struct
     let val mainLevel = Translate.newLevel {parent = Translate.outermost, name = Temp.newlabel (), formals = []}
         val () = FindEscape.findEscape exp
     in 
-      
-      transExp (Env.base_venv, Env.base_tenv, mainLevel) exp; ()
+      transExp (Env.base_venv, Env.base_tenv, mainLevel) exp
+    end
+
+  fun printIrTree exp = 
+    let
+      val {exp = irExp, ty = _} = transProg exp
+    in
+      Translate.printTree irExp
     end
 end

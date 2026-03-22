@@ -1,0 +1,7 @@
+let
+    var hello := 5
+    var world := 10
+    
+in
+    hello := world
+end

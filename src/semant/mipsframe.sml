@@ -21,7 +21,13 @@ struct
   fun allocLocal (frame: frame) =
     let
       fun allocLocalForFrame (false) =
-            InReg (Temp.newtemp ())
+        let
+          val t = Temp.newtemp ()
+          (* val () = print ("allocated local in register " ^ Int.toString t ^ "\n") *)
+        in
+          InReg t
+        end
+            
         | allocLocalForFrame (true) =
             let
               val inFrameRef = #numLocalsInFrame frame

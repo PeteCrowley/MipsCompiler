@@ -41,7 +41,7 @@ struct
     let
       val absyn = Parse.parse input
       (* val outputFile = TextIO.openOut output *)
-      fun do_it () = Semant.transProg absyn
+      fun do_it () = (Semant.transProg absyn; ())
     in
       IOUtil.withOutputFile (output, do_it) ()
     (* PrintExpty.print (outputFile, expty); *)
@@ -59,6 +59,15 @@ struct
       IOUtil.withOutputFile (output, do_it) ()
     (* PrintExpty.print (outputFile, expty); *)
     (* TextIO.closeOut outputFile *)
+    end
+    handle Fail msg => print ("Program raised Fail: " ^ msg)
+
+  fun ir (input, output) =
+    let
+      val absyn = Parse.parse input
+      fun do_it () = Semant.printIrTree absyn
+    in
+      IOUtil.withOutputFile (output, do_it) ()
     end
     handle Fail msg => print ("Program raised Fail: " ^ msg)
 
@@ -80,5 +89,6 @@ struct
       , test_fn = typecheck
       }
     , {test_name = "escape", test_dirs = ["escape-programs"], test_fn = escape}
+    , {test_name = "ir", test_dirs = ["ir-programs"], test_fn = ir}
     ]
 end

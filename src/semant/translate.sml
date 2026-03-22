@@ -96,13 +96,49 @@ struct
 
     fun getDummyExp () = Ex (Tree.CONST 0)
 
-    fun simpleVar (((accParentLev, accFrame, accUq), frameAcc), level) = 
+    fun printTree exp = 
         let
-          fun followStaticLinks ((_, _, uq), currFpAddr) = 
-            if accUq = uq then currFpAddr else Tree.MEM(Tree.BINOP(Tree.PLUS, Tree.CONST 0, Tree.MEM currFpAddr))
-          val framePointerAddrExp = followStaticLinks level
+          val irExp = unNx exp
         in
-          Frame.exp frameAcc framePointerAddrExp
+          Printtree.printtree (TextIO.stdOut, irExp)
         end
+
+    fun simpleVar ((NODE(accParentLev, accFrame, accUq), frameAcc), NODE(parentLev, frame, uq)) = 
+        let
+          fun followStaticLinks (NODE(parLev, _, uq'), currFpAddr) = 
+            if accUq = uq' then currFpAddr else followStaticLinks(parLev, Tree.MEM(Tree.MEM currFpAddr))    (* since static links are stored at offset 0 *)
+          | followStaticLinks (EMPTY, _) = raise Fail "Reached outermost level without finding variable's frame"
+
+          val framePointerAddrExp = followStaticLinks (NODE(parentLev, frame, uq), Tree.TEMP Frame.FP)
+        in
+            (* printTree (Ex (Frame.exp frameAcc framePointerAddrExp)); *)
+            Ex (Frame.exp frameAcc framePointerAddrExp)
+        end
+    | simpleVar (_, _) = raise Fail "simpleVar called on EMPTY level"
+
+    fun intExp i = Ex (Tree.CONST i)
+
+    fun assignExp (location, value) = 
+        let
+            val locExp = unEx location
+            val valExp = unEx value
+            val () = case locExp of
+                Tree.MEM _ => ()
+              | Tree.TEMP _ => ()
+              | _ => raise Fail "Left-hand side of assignment must be a storage location"
+        in
+            Nx (Tree.MOVE(locExp, valExp))
+        end
+
+    fun expList exps = 
+        let
+            fun seq [] = Tree.EXP (Tree.CONST 0)
+              | seq [e] = unNx e
+              | seq (e::es) = Tree.SEQ(unNx e, seq es)
+        in
+            Nx (seq exps)
+        end
+
+    
 
 end
