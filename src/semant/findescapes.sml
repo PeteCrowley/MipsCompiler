@@ -22,12 +22,17 @@ struct
       SOME (envDepth, escapes) =>
         (if d > envDepth then
            ( escapes := true
-           ; if !printEscapes then print (Symbol.name sym ^ " escapes\n")
-             else ()
+           ; if !printEscapes then
+               print (Symbol.name sym ^ " escapes\n")
+             else
+               () (* print (Symbol.name sym ^ " found at depth " ^ Int.toString d) *)
            )
          else
            ())
     | NONE => ()
+  (* functions don't need to be saved in the escEnv, and thus trigger this
+   * case constantly *)
+  (* if !printEscapes then print (Symbol.name sym ^ " not found\n") else () *)
 
   fun markSymbolEscape (env: escEnv, d: depth, sym: Symbol.symbol) : escEnv =
     ( if !printEscapes then print (Symbol.name sym ^ " escapes\n") else ()
@@ -146,9 +151,10 @@ struct
         in
           (case s of
              Absyn.FunctionDec fundecs =>
-               (* Increment depth level *)
+               (* Don't worry about marking escape, already does by default. *)
+               (* Increment depth level and traverse all functions in group *)
                ( map (fn fundec => traverseFundec (env, d + 1, fundec)) fundecs
-               ; env
+               ; traverseDecs (env, d, rest) (* continue recursive traversal *)
                )
            | Absyn.VarDec
                { name: Symbol.symbol
@@ -157,9 +163,14 @@ struct
                , init: Absyn.exp
                , pos: Absyn.pos
                } =>
-               ( traverseExp (env, d, init)
-               ; Symbol.enter (env, name, (d, escape))
-               )
+               let
+                 val varEnv =
+                   ( traverseExp (env, d, init)
+                   ; Symbol.enter (env, name, (d, escape))
+                   )
+               in
+                 traverseDecs (varEnv, d, rest)
+               end
            | Absyn.TypeDec _ => env)
         end
     | traverseDecs (env: escEnv, d: depth, []) = env
