@@ -1,0 +1,6 @@
+let
+    function f(): int = 5
+    function g(): int = f()
+in
+    g()
+end

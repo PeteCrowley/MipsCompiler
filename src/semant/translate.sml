@@ -12,7 +12,7 @@ struct
     type level = levelTree
     type access = level * Frame.access
 
-    val outermost = EMPTY
+    val outermost = NODE(EMPTY, Frame.newFrame {name = Temp.newlabel(), formals = []}, ref ())
     val newLevel = 
         let
             fun f {parent: level, name: Temp.label, formals: bool list} = 
@@ -103,13 +103,15 @@ struct
           Printtree.printtree (TextIO.stdOut, irExp)
         end
 
+    fun followStaticLinks (NODE(parLev, _, uq'), currFpAddr, targetUq) = 
+            if targetUq = uq' then currFpAddr else followStaticLinks(parLev, Tree.MEM currFpAddr, targetUq)    (* since static links are stored at offset 0 *)
+          | followStaticLinks (EMPTY, _, _) = raise Fail "Went past outermost level without finding variable's frame"
+
     fun simpleVar ((NODE(accParentLev, accFrame, accUq), frameAcc), NODE(parentLev, frame, uq)) = 
         let
-          fun followStaticLinks (NODE(parLev, _, uq'), currFpAddr) = 
-            if accUq = uq' then currFpAddr else followStaticLinks(parLev, Tree.MEM(Tree.MEM currFpAddr))    (* since static links are stored at offset 0 *)
-          | followStaticLinks (EMPTY, _) = raise Fail "Reached outermost level without finding variable's frame"
-
-          val framePointerAddrExp = followStaticLinks (NODE(parentLev, frame, uq), Tree.TEMP Frame.FP)
+            (* for debugging print access frame and variable frame *)
+          val () = print ("Access frame: " ^ Symbol.name (Frame.name accFrame) ^ ", variable frame: " ^ Symbol.name (Frame.name frame) ^ "\n")
+          val framePointerAddrExp = followStaticLinks (NODE(parentLev, frame, uq), Tree.TEMP Frame.FP, accUq)
         in
             (* printTree (Ex (Frame.exp frameAcc framePointerAddrExp)); *)
             Ex (Frame.exp frameAcc framePointerAddrExp)
@@ -139,6 +141,26 @@ struct
             Nx (seq exps)
         end
 
-    
+    fun functionDec (level, body) = 
+        let
+            val bodyExp = unEx body
+            val f = case level of
+                EMPTY => raise Fail "Outermost level has no frame"
+              | NODE (_, frame, _) => frame
+        in
+            Nx (Frame.addPrologueEpliogue (f, bodyExp))
+        end
+
+    fun functionCall (level, funcLevel, funcLabel, args) = 
+        let
+            val (calleeGrandPar, parentFrame, parentUq) = case funcLevel of
+                EMPTY => raise Fail "Function level cannot be outermost level"
+              | NODE (EMPTY, _, _) => raise Fail "cannot call outermost function"
+              | NODE (NODE parentLev, _, _) => parentLev
+            val staticLink =  followStaticLinks (level, Tree.TEMP Frame.FP, parentUq)
+            val argExps = List.map unEx args
+        in
+            Ex (Tree.CALL(Tree.NAME funcLabel, staticLink::argExps))
+        end
 
 end

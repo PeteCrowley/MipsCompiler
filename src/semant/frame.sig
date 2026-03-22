@@ -9,4 +9,5 @@ sig
   val FP: Temp.temp
   val wordsize: int
   val exp : access -> Tree.exp -> Tree.exp
+  val addPrologueEpliogue : frame * Tree.exp -> Tree.stm
 end

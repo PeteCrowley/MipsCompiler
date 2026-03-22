@@ -14,5 +14,7 @@ sig
     val assignExp : exp * exp -> exp
     val printTree : exp -> unit
     val expList : exp list -> exp
+    val functionDec : level * exp -> exp
+    val functionCall : level * level * Temp.label * exp list -> exp
 end
 

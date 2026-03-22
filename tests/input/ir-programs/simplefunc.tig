@@ -1,0 +1,5 @@
+let
+    function f(x: int): int = (x)
+in
+    f(5)
+end

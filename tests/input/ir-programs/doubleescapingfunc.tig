@@ -1,0 +1,13 @@
+let
+    var x := 5
+    function f(): int = (
+        let
+            function g(): int = (
+                x)
+        in
+            g()
+        end
+    )
+in
+    f ()
+end

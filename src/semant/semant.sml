@@ -400,12 +400,12 @@ struct
                       ; (level, Types.BOTTOM)
                       ) (* Should never hit this case *)
               val paramAccesses = Translate.formals funLevel
-              val (_, functionVenv) = foldl addParamTypesToVenv (funLevel, venv') (ListPair.zip(paramAccesses, params))
+              val (funcLevel, functionVenv) = foldl addParamTypesToVenv (funLevel, venv') (ListPair.zip(paramAccesses, params))
               
-              val {exp = e, ty = bodyType} =
-                transExp ((functionVenv, false), tenv, level) body
+              val {exp = bodyExp, ty = bodyType} =
+                transExp ((functionVenv, false), tenv, funcLevel) body
             in
-              if
+              (if
                 not (isSubtype (bodyType, returnType))
                 orelse
                 (areTypesEqual (returnType, Types.UNIT)
@@ -419,18 +419,30 @@ struct
                    ^ " between type annotation " ^ Types.typeToString returnType
                    ^ " and body of type " ^ Types.typeToString bodyType)
               else
-                ()
+                ());
+              bodyExp
             end
           val emptyNameSet: int Symbol.table = Symbol.empty
           val (venvWithFunctionGroup, nameList) =
             foldl readInFunctionHeader (venv, emptyNameSet) dec_list
-          val () =
-            List.app (fn dec => typeCheckFunction (dec, venvWithFunctionGroup))
-              dec_list
+
+          fun getFunctionDecExp (dec, venv') =
+            let
+              val bodyExp = typeCheckFunction (dec, venv')
+              val funcLevel = case Symbol.look (venv', #name dec) of
+                SOME (Env.FunEntry{level, label, ty}) => level
+              | _ => raise Fail "Undefined function in getFunctionDecExp" (* Should never hit this case *)
+            in
+              Translate.functionDec (funcLevel, bodyExp)
+            end
+          val funDecExpList =
+            foldr (fn (dec, expAcc) => (getFunctionDecExp (dec, venvWithFunctionGroup)) :: expAcc) [] dec_list
+
+          val funDecExpList = Translate.expList funDecExpList
 
             (* will want to generate the expression for the function here later, leaving as NONE for now*)
         in
-          {tenv = tenv, venv = venvWithFunctionGroup, exp = NONE}
+          {tenv = tenv, venv = venvWithFunctionGroup, exp = SOME funDecExpList}
         end
 
   and transExp ((venv, isLoop), tenv, level) =
@@ -445,15 +457,17 @@ struct
                {func: Absyn.symbol, args: Absyn.exp list, pos: Absyn.pos}) =
             (*check that func actually exists as a function in our venv*)
             (case Symbol.look (venv, func) of
-               SOME (Env.FunEntry {level, label, ty = Types.ARROW (fargs, ret)}) =>
+               SOME (Env.FunEntry {level=funcLevel, label=funcLabel, ty = Types.ARROW (fargs, ret)}) =>
                  let
-                   fun arg_to_ty (arg: Absyn.exp) =
-                     #ty (checkExp arg)
-                   (*convert tylist backwards and then reverse*)
-                   val arg_tylist = rev
-                     (foldl
-                        (fn (arg, arg_tylist) => (arg_to_ty arg) :: arg_tylist)
-                        ([] : Types.ty list) args)
+                    val (arg_tylist_rev, arg_exp_list_rev) = 
+                      foldl
+                          (fn (arg, (accTy, accExp)) => 
+                            let val {exp = e, ty=t} = checkExp arg 
+                            in (t :: accTy, e :: accExp) end)
+                          ([], []) args
+                    (* convert lists backwards and then reverse*)
+                    val argTyList = rev arg_tylist_rev
+                    val argExpList = rev arg_exp_list_rev
 
                    (* Tail recursive zip routine *)
                    fun typeCheckArgs ([], [], success) = success
@@ -489,13 +503,13 @@ struct
                          ; false
                          )
 
-                   val typesMatch = typeCheckArgs (arg_tylist, fargs, true)
+                   val typesMatch = typeCheckArgs (argTyList, fargs, true)
                  in
                    if typesMatch then
-                     {exp = Translate.getDummyExp(), ty = ret}
+                     {exp = Translate.functionCall(level, funcLevel, funcLabel, argExpList), ty = ret}
                    else
                      (* Type error already emitted *)
-                     {exp = Translate.getDummyExp(), ty = Types.NIL}
+                     {exp = Translate.getDummyExp(), ty = Types.BOTTOM}
                  end
              | _ =>
                  ( ErrorMsg.error pos
