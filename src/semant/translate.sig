@@ -3,9 +3,11 @@ sig
     type level
     type access
     type exp
+    structure Frame : FRAME
 
     val outermost : level
     val newLevel : {parent: level, name: Temp.label, formals: bool list} -> level
+    val getResult : unit -> Frame.frag list
     val formals : level -> access list
     val allocLocal : level -> bool -> access
     val getDummyExp: unit -> exp
@@ -36,6 +38,7 @@ sig
     val whileExp: exp * exp * Temp.label -> exp
     val forExp: exp * exp * exp * exp * Temp.label -> exp
     val breakExp: Temp.label -> exp
+    val stringLit: string -> exp
 
 end
 

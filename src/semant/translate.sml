@@ -12,6 +12,8 @@ struct
     type level = levelTree
     type access = level * Frame.access
 
+    val frags : Frame.frag list ref = ref []
+
     val outermost = NODE(EMPTY, Frame.newFrame {name = Temp.newlabel(), formals = []}, ref ())
     val newLevel = 
         let
@@ -242,5 +244,15 @@ struct
         end
 
     fun breakExp doneLabel = Nx (Tree.JUMP(Tree.NAME doneLabel, [doneLabel]))
+
+    fun getResult () = !frags
+
+    fun stringLit str = 
+    let
+        val label = Temp.newlabel()
+        val () = frags := Frame.STRING (label, str) :: !frags
+    in
+        Ex (Tree.NAME label)
+    end
 
 end

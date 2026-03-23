@@ -9,6 +9,7 @@ let
     var b := s1 = s2
     var c := x <> y
     var d := s1 >= s2
+    var e := "a" < "b"
 in
     a + c + z + w
 end

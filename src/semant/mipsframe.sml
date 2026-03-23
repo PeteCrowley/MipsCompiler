@@ -4,6 +4,9 @@ struct
   type frame =
     {name: Temp.label, formals: access list, numLocalsInFrame: int ref, numRegArgs: int}
 
+  datatype frag = PROC of {body: Tree.stm, frame: frame} 
+                  | STRING of Temp.label * string
+
   val FP = 30
   val SP = 29
   val RA = 31
