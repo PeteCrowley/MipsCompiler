@@ -8,7 +8,8 @@ sig
   val name: frame -> Temp.label
   val formals: frame -> access list
   val allocLocal: frame -> bool -> access
-  val FP: Temp.temp
+  val FP: Temp.temp (* frame pointer register *)
+  val RV: Temp.temp (* return value register *)
   val wordsize: int
   val exp : access -> Tree.exp -> Tree.exp
   val addPrologueEpliogue : frame * Tree.exp -> Tree.stm

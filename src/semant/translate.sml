@@ -150,8 +150,10 @@ struct
             val f = case level of
                 EMPTY => raise Fail "Outermost level has no frame"
               | NODE (_, frame, _) => frame
+            val bodyExpWithReturn = Tree.MOVE(Tree.TEMP Frame.RV, bodyExp)
+            val funcFrag = Frame.PROC {body = bodyExpWithReturn, frame = f}
         in
-            Nx (Frame.addPrologueEpliogue (f, bodyExp))
+            frags := funcFrag :: !frags
         end
 
     fun functionCall (level, funcLevel, funcLabel, args) = 

@@ -1,6 +1,6 @@
 let
     type rectype = {x: int, y: string}
-    var r = rectype{x = 5, y = "hello"}
+    var r := rectype{x = 5, y = "hello"}
 in
     (r.x; r.y)
 end

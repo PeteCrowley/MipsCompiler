@@ -435,14 +435,11 @@ struct
             in
               Translate.functionDec (funcLevel, bodyExp)
             end
-          val funDecExpList =
-            foldr (fn (dec, expAcc) => (getFunctionDecExp (dec, venvWithFunctionGroup)) :: expAcc) [] dec_list
+          val () =
+            List.app (fn dec => (getFunctionDecExp (dec, venvWithFunctionGroup))) dec_list
 
-          val funDecExpList = Translate.expList funDecExpList
-
-            (* will want to generate the expression for the function here later, leaving as NONE for now*)
         in
-          {tenv = tenv, venv = venvWithFunctionGroup, exp = SOME funDecExpList}
+          {tenv = tenv, venv = venvWithFunctionGroup, exp = NONE}
         end
 
   and transExp (venv, tenv, level, loopEndLabel) =
@@ -709,7 +706,7 @@ struct
                 foldl processDec {venv = venv, tenv = tenv, expList = []} decs
               val {exp = bodyExp, ty = bodyTy} = transExp (new_venv, new_tenv, level, NONE) body
               val exprSeq = case expList of
-                [] => Translate.getDummyExp()
+                [] => bodyExp
               | _ => Translate.expList (List.rev (bodyExp::expList))
             in
               {exp = exprSeq, ty = bodyTy}
