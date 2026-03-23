@@ -609,11 +609,20 @@ struct
                  ; {exp = Translate.getDummyExp(), ty = Types.NIL}
                  ))
         | checkExp (Absyn.SeqExp explist) =
-            (case explist of
-               [] => {exp = Translate.getDummyExp(), ty = Types.UNIT}
-             | [(expr, pos)] => checkExp expr
-             | (expr, pos) :: rest =>
-                 (checkExp expr; checkExp (Absyn.SeqExp rest)))
+            let val (exp, ty) = case explist of
+                    [] => (Translate.getDummyExp(), Types.UNIT)
+                  | [(expr, pos)] => 
+                      let val {exp = e, ty = t} = checkExp expr in (e, t) end
+                  | (expr, pos) :: rest =>
+                      let 
+                        val {exp = e, ty = t} = checkExp expr 
+                        val {exp = restExp, ty = restTy} = checkExp (Absyn.SeqExp rest)
+                      in
+                        (Translate.expList [e, restExp], restTy)
+                      end
+            in
+              {exp = exp, ty = ty}
+            end
 
         | checkExp (Absyn.AssignExp {var, exp, pos}) =
             let
