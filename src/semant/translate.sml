@@ -94,7 +94,7 @@ struct
         | unCx (Nx _) = (fn (t, f) => Tree.EXP(Tree.CONST 0)) (* never hit *)
         | unCx (Cx genstm) = genstm
 
-    fun getDummyExp () = Ex (Tree.CONST 0)
+    fun getDummyExp () = Nx (Tree.EXP (Tree.CONST 0))
 
     fun printTree exp = 
         let
@@ -183,5 +183,26 @@ struct
     fun strGeExp (e1, e2) = Cx (fn (t,f) => (Tree.CJUMP(Tree.GE, stringComp(e1, e2), Tree.CONST 0, t, f)))
     fun strEqExp (e1, e2) = Cx (fn (t,f) => (Tree.CJUMP(Tree.EQ, stringComp(e1, e2), Tree.CONST 0, t, f)))
     fun strNeqExp (e1, e2) = Cx (fn (t,f) => (Tree.CJUMP(Tree.NE, stringComp(e1, e2), Tree.CONST 0, t, f)))
+
+    (* leaving this ifExp ineffecient and not optimized as described on Appel 162 since I'm lazy -Pete *)
+    fun ifExp (cond, thenExp, elseExp) = 
+        let
+            val condCx = unCx cond
+            val thenEx = unEx thenExp
+            val elseEx = unEx elseExp
+            val r = Temp.newtemp()
+            val t = Temp.newlabel()
+            val f = Temp.newlabel()
+            val endLabel = Temp.newlabel()
+        in
+            Ex (Tree.ESEQ(seq[condCx(t,f),
+                                Tree.LABEL t,
+                                Tree.MOVE(Tree.TEMP r, thenEx),
+                                Tree.JUMP(Tree.NAME endLabel, [endLabel]),
+                                Tree.LABEL f,
+                                Tree.MOVE(Tree.TEMP r, elseEx),
+                                Tree.LABEL endLabel
+                                ], Tree.TEMP r))
+        end
 
 end

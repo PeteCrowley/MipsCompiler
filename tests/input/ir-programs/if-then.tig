@@ -1,0 +1,6 @@
+let
+    var x = if 4 > 5 then 10 else 1
+    var y = if 1 = 1 then ()
+in
+    if x < 5 then () else ()
+end

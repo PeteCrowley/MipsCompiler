@@ -32,6 +32,7 @@ sig
     val strGeExp : exp * exp -> exp
     val strEqExp : exp * exp -> exp
     val strNeqExp : exp * exp -> exp
+    val ifExp: exp * exp * exp -> exp
 
 
 end

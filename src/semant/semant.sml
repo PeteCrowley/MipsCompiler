@@ -636,13 +636,14 @@ struct
 
         | checkExp (Absyn.IfExp {test, then', else', pos}) =
             let
-              val {exp = _, ty = then_ty} = checkExp then'
-              val {exp = _, ty = else_ty} =
+              val {exp = thenExp, ty = then_ty} = checkExp then'
+              val {exp = elseExp, ty = else_ty} =
                 case else' of
                   SOME else_exp => checkExp else_exp
                 | NONE => {exp = Translate.getDummyExp(), ty = Types.UNIT}
+              val {exp = testExp, ty = test_ty} = checkExp test
             in
-              checkInt ((checkExp test), pos);
+              checkInt ({exp = testExp, ty = test_ty}, pos);
               if isTypeMismatch (then_ty, else_ty) then
                 ErrorMsg.error pos
                   ("Type mismatch in if then else statement:\n \tthen type: "
@@ -650,7 +651,7 @@ struct
                    ^ Types.typeToString else_ty)
               else
                 ();
-              {exp = Translate.getDummyExp(), ty = leastUpperBound (then_ty, else_ty)}
+              {exp = Translate.ifExp(testExp, thenExp, elseExp), ty = leastUpperBound (then_ty, else_ty)}
             end
 
         | checkExp (Absyn.WhileExp {test, body, pos}) =
