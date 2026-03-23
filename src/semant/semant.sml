@@ -1,6 +1,6 @@
 structure Semant:
 sig
-  
+
 
   type expty
   type venv
@@ -8,22 +8,17 @@ sig
   val transProg: Absyn.exp -> expty
   val printIrTree: Absyn.exp -> unit
 
-  val transVar: venv * tenv * Absyn.var -> expty
-  val transExp: venv * tenv * Translate.level * Temp.label option-> Absyn.exp -> expty
-  val transDec: venv * tenv * Absyn.dec * Translate.level * Temp.label option -> {venv: venv, tenv: tenv, exp: Translate.exp option}
-  val transTy: tenv * Absyn.ty -> Types.ty
+  val transExp: venv * tenv * Translate.level * Temp.label option
+                -> Absyn.exp
+                -> expty
+  val transDec: venv * tenv * Absyn.dec * Translate.level
+                -> {venv: venv, tenv: tenv, exp: Translate.exp option}
 
 end =
 struct
   type expty = {exp: Translate.exp, ty: Types.ty}
   type venv = Env.enventry Symbol.table
   type tenv = Types.ty Symbol.table
-
-
-  fun transVar (venv, tenv, var) = {exp = Translate.getDummyExp(), ty = Types.BOTTOM}
-
-  fun transTy (tenv, ty) = Types.BOTTOM
-
 
   (* Returns true if t1 is a subtype of t2 *)
   fun isSubtype (t1, t2) =
@@ -105,7 +100,12 @@ struct
     else
       ErrorMsg.error pos "incompatible types in comparison"
 
-  fun transDec (venv: Env.enventry Symbol.table, tenv, Absyn.VarDec {name, escape, typ, init, pos}, level, loopEndLabel) =
+  fun transDec
+        ( venv: Env.enventry Symbol.table
+        , tenv
+        , Absyn.VarDec {name, escape, typ, init, pos}
+        , level
+        ) =
         let
           val {exp = e, ty = exp_ty} = transExp (venv, tenv, level, NONE) init
           val type_annotation =
@@ -119,36 +119,48 @@ struct
                      ; NONE
                      ))
             | NONE => NONE
-          val access = Translate.allocLocal level (!escape) 
+          val access = Translate.allocLocal level (!escape)
           (* keep the expression quick and dirty to just handle simplevars for now *)
           (* will have to be fancier to handle record and array inits later *)
-          val varInitExp = Translate.assignExp (Translate.simpleVar (access, level), e)
-          
+          val varInitExp = Translate.assignExp
+            (Translate.simpleVar (access, level), e)
+
           (* redeclarations "hide" the previous declaration, regardless of type *)
-          val newVenv = case type_annotation of
-            SOME t =>
-              if not (isSubtype (exp_ty, t)) then
-                ( ErrorMsg.error pos
-                    ("Type mismatch between for var dec " ^ Symbol.name name
-                     ^ " between type annotation " ^ Types.typeToString t
-                     ^ " and init expr of type " ^ Types.typeToString exp_ty)
-                ; Symbol.enter (venv, name, Env.VarEntry{access=access, ty=Types.BOTTOM})
-                )
-              else
-                Symbol.enter (venv, name, Env.VarEntry{access=access, ty=t})
-          | NONE =>
-              if areTypesEqual (exp_ty, Types.NIL) then
-                ( ErrorMsg.error pos
-                    ("Init expression for nil must have type annotation")
-                ; Symbol.enter (venv, name, Env.VarEntry{access=access, ty=Types.BOTTOM})
-                )
-              else
-                Symbol.enter (venv, name, Env.VarEntry{access=access, ty=exp_ty})
+          val newVenv =
+            case type_annotation of
+              SOME t =>
+                if not (isSubtype (exp_ty, t)) then
+                  ( ErrorMsg.error pos
+                      ("Type mismatch between for var dec " ^ Symbol.name name
+                       ^ " between type annotation " ^ Types.typeToString t
+                       ^ " and init expr of type " ^ Types.typeToString exp_ty)
+                  ; Symbol.enter
+                      ( venv
+                      , name
+                      , Env.VarEntry {access = access, ty = Types.BOTTOM}
+                      )
+                  )
+                else
+                  Symbol.enter
+                    (venv, name, Env.VarEntry {access = access, ty = t})
+            | NONE =>
+                if areTypesEqual (exp_ty, Types.NIL) then
+                  ( ErrorMsg.error pos
+                      ("Init expression for nil must have type annotation")
+                  ; Symbol.enter
+                      ( venv
+                      , name
+                      , Env.VarEntry {access = access, ty = Types.BOTTOM}
+                      )
+                  )
+                else
+                  Symbol.enter
+                    (venv, name, Env.VarEntry {access = access, ty = exp_ty})
 
         in
           {venv = newVenv, tenv = tenv, exp = SOME varInitExp}
         end
-    | transDec (venv, tenv, Absyn.TypeDec dec_list, level, loopEndLabel) =
+    | transDec (venv, tenv, Absyn.TypeDec dec_list, level) =
         let
           fun readInTypeName ({name, ty, pos}, nameTable) =
             let
@@ -325,7 +337,7 @@ struct
         in
           {venv = venv, tenv = newTenv, exp = NONE}
         end
-    | transDec (venv, tenv, Absyn.FunctionDec dec_list, level, loopEndLabel) =
+    | transDec (venv, tenv, Absyn.FunctionDec dec_list, level) =
         let
           fun getParamTypes ({name, escape, typ, pos}, acc) =
             let
@@ -365,16 +377,17 @@ struct
                       ("Duplicate function names " ^ Symbol.name name
                        ^ " in function declaration group")
                 | NONE => ()
-              val funEntry = Env.getFunEntry (level, Types.ARROW (fieldTypeList, returnType), paramEscapes)
+              val funEntry = Env.getFunEntry
+                (level, Types.ARROW (fieldTypeList, returnType), paramEscapes)
             in
-              ( Symbol.enter
-                  (venv', name, funEntry)
+              ( Symbol.enter (venv', name, funEntry)
               , Symbol.enter (nameEnv, name, 1)
               )
             end
 
           (* A lot of code duplication from getParamTypes but it's probably fine *)
-          fun addParamTypesToVenv ((access, {name, escape, typ, pos}), (funcLevel, venv')) =
+          fun addParamTypesToVenv
+            ((access, {name, escape, typ, pos}), (funcLevel, venv')) =
             let
               val paramType =
                 case Symbol.look (tenv, typ) of
@@ -386,40 +399,49 @@ struct
                     ; Types.BOTTOM
                     )
             in
-              (funcLevel, Symbol.enter (venv', name, Env.VarEntry{access=access, ty= paramType}))
+              ( funcLevel
+              , Symbol.enter
+                  (venv', name, Env.VarEntry {access = access, ty = paramType})
+              )
             end
 
           fun typeCheckFunction ({body, name, params, pos, result}, venv') =
             let
               val (funLevel, returnType) =
-                  case Symbol.look (venv', name) of
-                    SOME (Env.FunEntry{level=lv, label, ty=Types.ARROW (fl, retType)}) => (lv, retType)
-                  | _ =>
-                      ( ErrorMsg.error pos
-                          ("Undefined function " ^ Symbol.name name)
-                      ; (level, Types.BOTTOM)
-                      ) (* Should never hit this case *)
+                case Symbol.look (venv', name) of
+                  SOME
+                    (Env.FunEntry
+                       {level = lv, label, ty = Types.ARROW (fl, retType)}) =>
+                    (lv, retType)
+                | _ =>
+                    ( ErrorMsg.error pos
+                        ("Undefined function " ^ Symbol.name name)
+                    ; (level, Types.BOTTOM)
+                    ) (* Should never hit this case *)
               val paramAccesses = Translate.formals funLevel
-              val (funcLevel, functionVenv) = foldl addParamTypesToVenv (funLevel, venv') (ListPair.zip(paramAccesses, params))
-              
+              val (funcLevel, functionVenv) =
+                foldl addParamTypesToVenv (funLevel, venv')
+                  (ListPair.zip (paramAccesses, params))
+
               val {exp = bodyExp, ty = bodyType} =
                 transExp (functionVenv, tenv, funcLevel, NONE) body
             in
               (if
-                not (isSubtype (bodyType, returnType))
-                orelse
-                (areTypesEqual (returnType, Types.UNIT)
-                 andalso
-                 not
-                   (areTypesEqual (bodyType, Types.UNIT)
-                    orelse areTypesEqual (bodyType, Types.BOTTOM)))
-              then
-                ErrorMsg.error pos
-                  ("Type mismatch between for function dec " ^ Symbol.name name
-                   ^ " between type annotation " ^ Types.typeToString returnType
-                   ^ " and body of type " ^ Types.typeToString bodyType)
-              else
-                ());
+                 not (isSubtype (bodyType, returnType))
+                 orelse
+                 (areTypesEqual (returnType, Types.UNIT)
+                  andalso
+                  not
+                    (areTypesEqual (bodyType, Types.UNIT)
+                     orelse areTypesEqual (bodyType, Types.BOTTOM)))
+               then
+                 ErrorMsg.error pos
+                   ("Type mismatch between for function dec " ^ Symbol.name name
+                    ^ " between type annotation "
+                    ^ Types.typeToString returnType ^ " and body of type "
+                    ^ Types.typeToString bodyType)
+               else
+                 ());
               bodyExp
             end
           val emptyNameSet: int Symbol.table = Symbol.empty
@@ -429,14 +451,19 @@ struct
           fun getFunctionDecExp (dec, venv') =
             let
               val bodyExp = typeCheckFunction (dec, venv')
-              val funcLevel = case Symbol.look (venv', #name dec) of
-                SOME (Env.FunEntry{level, label, ty}) => level
-              | _ => raise Fail "Undefined function in getFunctionDecExp" (* Should never hit this case *)
+              val funcLevel =
+                case Symbol.look (venv', #name dec) of
+                  SOME (Env.FunEntry {level, label, ty}) => level
+                | _ =>
+                    raise Fail
+                      "Undefined function in getFunctionDecExp" (* Should never hit this case *)
             in
               Translate.functionDec (funcLevel, bodyExp)
             end
           val () =
-            List.app (fn dec => (getFunctionDecExp (dec, venvWithFunctionGroup))) dec_list
+            List.app
+              (fn dec => (getFunctionDecExp (dec, venvWithFunctionGroup)))
+              dec_list
 
         in
           {tenv = tenv, venv = venvWithFunctionGroup, exp = NONE}
@@ -445,26 +472,33 @@ struct
   and transExp (venv, tenv, level, loopEndLabel) =
     let
       fun checkExp (Absyn.VarExp var) = trvar var
-        | checkExp Absyn.NilExp = {exp = Translate.getZeroExp(), ty = Types.NIL}
+        | checkExp Absyn.NilExp =
+            {exp = Translate.getZeroExp (), ty = Types.NIL}
         | checkExp (Absyn.IntExp i) = {exp = Translate.intExp i, ty = Types.INT}
-        | checkExp (Absyn.StringExp (str, pos)) = {exp = Translate.stringLit str, ty = Types.STRING}
+        | checkExp (Absyn.StringExp (str, pos)) =
+            {exp = Translate.stringLit str, ty = Types.STRING}
 
         | checkExp
             (Absyn.CallExp
                {func: Absyn.symbol, args: Absyn.exp list, pos: Absyn.pos}) =
             (*check that func actually exists as a function in our venv*)
             (case Symbol.look (venv, func) of
-               SOME (Env.FunEntry {level=funcLevel, label=funcLabel, ty = Types.ARROW (fargs, ret)}) =>
+               SOME
+                 (Env.FunEntry
+                    { level = funcLevel
+                    , label = funcLabel
+                    , ty = Types.ARROW (fargs, ret)
+                    }) =>
                  let
-                    val (arg_tylist_rev, arg_exp_list_rev) = 
-                      foldl
-                          (fn (arg, (accTy, accExp)) => 
-                            let val {exp = e, ty=t} = checkExp arg 
-                            in (t :: accTy, e :: accExp) end)
-                          ([], []) args
-                    (* convert lists backwards and then reverse*)
-                    val argTyList = rev arg_tylist_rev
-                    val argExpList = rev arg_exp_list_rev
+                   val (arg_tylist_rev, arg_exp_list_rev) =
+                     foldl
+                       (fn (arg, (accTy, accExp)) =>
+                          let val {exp = e, ty = t} = checkExp arg
+                          in (t :: accTy, e :: accExp)
+                          end) ([], []) args
+                   (* convert lists backwards and then reverse*)
+                   val argTyList = rev arg_tylist_rev
+                   val argExpList = rev arg_exp_list_rev
 
                    (* Tail recursive zip routine *)
                    fun typeCheckArgs ([], [], success) = success
@@ -503,51 +537,63 @@ struct
                    val typesMatch = typeCheckArgs (argTyList, fargs, true)
                  in
                    if typesMatch then
-                     {exp = Translate.functionCall(level, funcLevel, funcLabel, argExpList), ty = ret}
+                     { exp =
+                         Translate.functionCall
+                           (level, funcLevel, funcLabel, argExpList)
+                     , ty = ret
+                     }
                    else
                      (* Type error already emitted *)
-                     {exp = Translate.getDummyExp(), ty = Types.BOTTOM}
+                     {exp = Translate.getDummyExp (), ty = Types.BOTTOM}
                  end
              | _ =>
                  ( ErrorMsg.error pos
                      ("Undefined function " ^ (Symbol.name func))
-                 ; {exp = Translate.getDummyExp(), ty = Types.NIL}
+                 ; {exp = Translate.getDummyExp (), ty = Types.NIL}
                  ))
 
         | checkExp (Absyn.OpExp {left, oper, right, pos}) =
-          let
-            val {exp = leftExp, ty = leftTy} = checkExp left
-            val {exp = rightExp, ty = rightTy} = checkExp right
-            val () = case oper of
-                (Absyn.PlusOp | Absyn.MinusOp | Absyn.TimesOp | Absyn.DivideOp) =>
-                  ( checkInt ({exp = leftExp, ty = leftTy}, pos)
-                  ; checkInt ({exp = rightExp, ty = rightTy}, pos)
-                  )
-              | (Absyn.LeOp | Absyn.LtOp | Absyn.GeOp | Absyn.GtOp) =>
-                  checkOrderable (checkExp left, checkExp right, pos)
-              | (Absyn.EqOp | Absyn.NeqOp) =>
-                  checkEqualable (checkExp left, checkExp right, pos)
-            val totalExp = case (oper, leftTy) of
-              (Absyn.LeOp, Types.STRING) => Translate.strLeExp (leftExp, rightExp)
-              | (Absyn.LtOp, Types.STRING) => Translate.strLtExp (leftExp, rightExp)
-              | (Absyn.GeOp, Types.STRING) => Translate.strGeExp (leftExp, rightExp)
-              | (Absyn.GtOp, Types.STRING) => Translate.strGtExp (leftExp, rightExp)
-              | (Absyn.EqOp, Types.STRING) => Translate.strEqExp (leftExp, rightExp)
-              | (Absyn.NeqOp, Types.STRING) => Translate.strNeqExp (leftExp, rightExp)
-              | (Absyn.PlusOp, _) => Translate.addExp (leftExp, rightExp)
-              | (Absyn.MinusOp, _) => Translate.subExp (leftExp, rightExp)
-              | (Absyn.TimesOp, _) => Translate.mulExp (leftExp, rightExp)
-              | (Absyn.DivideOp, _) => Translate.divExp (leftExp, rightExp)
-              | (Absyn.LeOp, _) => Translate.leExp (leftExp, rightExp)
-              | (Absyn.LtOp, _) => Translate.ltExp (leftExp, rightExp)
-              | (Absyn.GeOp, _) => Translate.geExp (leftExp, rightExp)
-              | (Absyn.GtOp, _) => Translate.gtExp (leftExp, rightExp)
-              | (Absyn.EqOp, _) => Translate.eqExp (leftExp, rightExp)
-              | (Absyn.NeqOp, _) => Translate.neqExp (leftExp, rightExp)
-          in
-            {exp = totalExp, ty = Types.INT}
-          end
-            
+            let
+              val {exp = leftExp, ty = leftTy} = checkExp left
+              val {exp = rightExp, ty = rightTy} = checkExp right
+              val () =
+                case oper of
+                  (Absyn.PlusOp | Absyn.MinusOp | Absyn.TimesOp | Absyn.DivideOp) =>
+                    ( checkInt ({exp = leftExp, ty = leftTy}, pos)
+                    ; checkInt ({exp = rightExp, ty = rightTy}, pos)
+                    )
+                | (Absyn.LeOp | Absyn.LtOp | Absyn.GeOp | Absyn.GtOp) =>
+                    checkOrderable (checkExp left, checkExp right, pos)
+                | (Absyn.EqOp | Absyn.NeqOp) =>
+                    checkEqualable (checkExp left, checkExp right, pos)
+              val totalExp =
+                case (oper, leftTy) of
+                  (Absyn.LeOp, Types.STRING) =>
+                    Translate.strLeExp (leftExp, rightExp)
+                | (Absyn.LtOp, Types.STRING) =>
+                    Translate.strLtExp (leftExp, rightExp)
+                | (Absyn.GeOp, Types.STRING) =>
+                    Translate.strGeExp (leftExp, rightExp)
+                | (Absyn.GtOp, Types.STRING) =>
+                    Translate.strGtExp (leftExp, rightExp)
+                | (Absyn.EqOp, Types.STRING) =>
+                    Translate.strEqExp (leftExp, rightExp)
+                | (Absyn.NeqOp, Types.STRING) =>
+                    Translate.strNeqExp (leftExp, rightExp)
+                | (Absyn.PlusOp, _) => Translate.addExp (leftExp, rightExp)
+                | (Absyn.MinusOp, _) => Translate.subExp (leftExp, rightExp)
+                | (Absyn.TimesOp, _) => Translate.mulExp (leftExp, rightExp)
+                | (Absyn.DivideOp, _) => Translate.divExp (leftExp, rightExp)
+                | (Absyn.LeOp, _) => Translate.leExp (leftExp, rightExp)
+                | (Absyn.LtOp, _) => Translate.ltExp (leftExp, rightExp)
+                | (Absyn.GeOp, _) => Translate.geExp (leftExp, rightExp)
+                | (Absyn.GtOp, _) => Translate.gtExp (leftExp, rightExp)
+                | (Absyn.EqOp, _) => Translate.eqExp (leftExp, rightExp)
+                | (Absyn.NeqOp, _) => Translate.neqExp (leftExp, rightExp)
+            in
+              {exp = totalExp, ty = Types.INT}
+            end
+
         | checkExp (Absyn.RecordExp {fields, typ, pos}) =
             (case Symbol.look (tenv, typ) of
              (* condition 1: the type must be defined as a record type *)
@@ -571,53 +617,65 @@ struct
                        ()
                    fun checkRecordFields (providedFields, []) = []
                      | checkRecordFields (providedFields, (id, ty) :: rest) =
-                         ( case
-                             List.find (fn (s, expr, p) => s = id)
-                               providedFields
-                           of
-                             SOME (s, expr, p) =>
-                               let
-                                 val {exp = e, ty = expr_ty} = checkExp expr
-                               in
-                                 if not (isSubtype (expr_ty, ty)) then
-                                   (ErrorMsg.error p
-                                     ("Field " ^ Symbol.name id
-                                      ^ " has incorrect type for record type "
-                                      ^ Symbol.name typ);
-                                      Translate.getDummyExp() :: (checkRecordFields (providedFields, rest)))
-                                 else
-                                   e :: (checkRecordFields (providedFields, rest))
+                         (case
+                            List.find (fn (s, expr, p) => s = id) providedFields
+                          of
+                            SOME (s, expr, p) =>
+                              let
+                                val {exp = e, ty = expr_ty} = checkExp expr
+                              in
+                                if not (isSubtype (expr_ty, ty)) then
+                                  ( ErrorMsg.error p
+                                      ("Field " ^ Symbol.name id
+                                       ^ " has incorrect type for record type "
+                                       ^ Symbol.name typ)
+                                  ; Translate.getDummyExp ()
+                                    ::
+                                    (checkRecordFields (providedFields, rest))
+                                  )
+                                else
+                                  e
+                                  :: (checkRecordFields (providedFields, rest))
 
-                               end
-                           | NONE =>
-                               (ErrorMsg.error pos
-                                 ("Field " ^ Symbol.name id
-                                  ^
-                                  " not found in initialization of record type "
-                                  ^ Symbol.name typ) 
-                                  ; Translate.getDummyExp() :: (checkRecordFields (providedFields, rest)))
-                         )
-                  (* condition 3: all the expected fields must be provided with the correct expression type *)
-                  val fieldExpList = checkRecordFields (fields, expectedFieldList)
+                              end
+                          | NONE =>
+                              ( ErrorMsg.error pos
+                                  ("Field " ^ Symbol.name id
+                                   ^
+                                   " not found in initialization of record type "
+                                   ^ Symbol.name typ)
+                              ; Translate.getDummyExp ()
+                                :: (checkRecordFields (providedFields, rest))
+                              ))
+                   (* condition 3: all the expected fields must be provided with the correct expression type *)
+                   val fieldExpList =
+                     checkRecordFields (fields, expectedFieldList)
                  in
-                   {exp = Translate.recordExp fieldExpList, ty = Types.RECORD rec_type}
+                   { exp = Translate.recordExp fieldExpList
+                   , ty = Types.RECORD rec_type
+                   }
                  end
              | _ =>
                  ( ErrorMsg.error pos "Undefined record type"
-                 ; {exp = Translate.getDummyExp(), ty = Types.NIL}
+                 ; {exp = Translate.getDummyExp (), ty = Types.NIL}
                  ))
         | checkExp (Absyn.SeqExp explist) =
-            let val (exp, ty) = case explist of
-                    [] => (Translate.getDummyExp(), Types.UNIT)
-                  | [(expr, pos)] => 
-                      let val {exp = e, ty = t} = checkExp expr in (e, t) end
-                  | (expr, pos) :: rest =>
-                      let 
-                        val {exp = e, ty = t} = checkExp expr 
-                        val {exp = restExp, ty = restTy} = checkExp (Absyn.SeqExp rest)
-                      in
-                        (Translate.expList [e, restExp], restTy)
-                      end
+            let
+              val (exp, ty) =
+                case explist of
+                  [] => (Translate.getDummyExp (), Types.UNIT)
+                | [(expr, pos)] =>
+                    let val {exp = e, ty = t} = checkExp expr
+                    in (e, t)
+                    end
+                | (expr, pos) :: rest =>
+                    let
+                      val {exp = e, ty = t} = checkExp expr
+                      val {exp = restExp, ty = restTy} =
+                        checkExp (Absyn.SeqExp rest)
+                    in
+                      (Translate.expList [e, restExp], restTy)
+                    end
             in
               {exp = exp, ty = ty}
             end
@@ -638,7 +696,7 @@ struct
                 ErrorMsg.error pos
                   ("Cannot assign " ^ Types.typeToString expr_ty ^ " to "
                    ^ Types.typeToString var_ty);
-              {exp = Translate.assignExp(e2, e1), ty = Types.UNIT}
+              {exp = Translate.assignExp (e2, e1), ty = Types.UNIT}
             end
 
         | checkExp (Absyn.IfExp {test, then', else', pos}) =
@@ -647,7 +705,7 @@ struct
               val {exp = elseExp, ty = else_ty} =
                 case else' of
                   SOME else_exp => checkExp else_exp
-                | NONE => {exp = Translate.getDummyExp(), ty = Types.UNIT}
+                | NONE => {exp = Translate.getDummyExp (), ty = Types.UNIT}
               val {exp = testExp, ty = test_ty} = checkExp test
             in
               checkInt ({exp = testExp, ty = test_ty}, pos);
@@ -658,56 +716,89 @@ struct
                    ^ Types.typeToString else_ty)
               else
                 ();
-              {exp = Translate.ifExp(testExp, thenExp, elseExp), ty = leastUpperBound (then_ty, else_ty)}
+              { exp = Translate.ifExp (testExp, thenExp, elseExp)
+              , ty = leastUpperBound (then_ty, else_ty)
+              }
             end
 
         | checkExp (Absyn.WhileExp {test, body, pos}) =
             let
               val {exp = testExp, ty = testTy} = checkExp test
               val () = checkInt ({exp = testExp, ty = testTy}, pos)
-              val doneLabel = Temp.newlabel()
+              val doneLabel = Temp.newlabel ()
               (*call transexp, because we need to set isLoop to true!*)
-              val {exp = bodyExp, ty = bodyTy} = transExp (venv, tenv, level, SOME doneLabel) body
-              val () = if not (areTypesEqual(bodyTy, Types.UNIT) orelse areTypesEqual(bodyTy, Types.BOTTOM)) 
-                        then ErrorMsg.error pos "Body of while loop produces non-unit value"
-                        else ()
+              val {exp = bodyExp, ty = bodyTy} =
+                transExp (venv, tenv, level, SOME doneLabel) body
+              val () =
+                if
+                  not
+                    (areTypesEqual (bodyTy, Types.UNIT)
+                     orelse areTypesEqual (bodyTy, Types.BOTTOM))
+                then
+                  ErrorMsg.error pos
+                    "Body of while loop produces non-unit value"
+                else
+                  ()
             in
-              {exp = Translate.whileExp(testExp, bodyExp, doneLabel), ty = Types.UNIT}
+              { exp = Translate.whileExp (testExp, bodyExp, doneLabel)
+              , ty = Types.UNIT
+              }
             end
 
         | checkExp (Absyn.ForExp {var, escape, lo, hi, body, pos}) =
             let
               val access = Translate.allocLocal level (!escape)
               val loopVarExp = Translate.simpleVar (access, level)
-              val newVenv = Symbol.enter (venv, var, Env.VarEntry{access=access, ty=Types.READ_ONLY_INT})
-              val doneLabel = Temp.newlabel()
+              val newVenv = Symbol.enter
+                ( venv
+                , var
+                , Env.VarEntry {access = access, ty = Types.READ_ONLY_INT}
+                )
+              val doneLabel = Temp.newlabel ()
               val {exp = loExp, ty = loTy} = checkExp lo
               val {exp = hiExp, ty = hiTy} = checkExp hi
-              val {exp = bodyExp, ty = bodyTy} = transExp (newVenv, tenv, level, SOME doneLabel) body
+              val {exp = bodyExp, ty = bodyTy} =
+                transExp (newVenv, tenv, level, SOME doneLabel) body
               val () = checkInt ({exp = loExp, ty = loTy}, pos)
               val () = checkInt ({exp = hiExp, ty = hiTy}, pos)
-              val () = if not (areTypesEqual(bodyTy, Types.UNIT) orelse areTypesEqual(bodyTy, Types.BOTTOM)) 
-                          then ErrorMsg.error pos "Body of for loop produces non-unit value"
-                          else ()
+              val () =
+                if
+                  not
+                    (areTypesEqual (bodyTy, Types.UNIT)
+                     orelse areTypesEqual (bodyTy, Types.BOTTOM))
+                then
+                  ErrorMsg.error pos "Body of for loop produces non-unit value"
+                else
+                  ()
             in
-              {exp = Translate.forExp(loopVarExp, loExp, hiExp, bodyExp, doneLabel), ty = Types.UNIT}
+              { exp = Translate.forExp
+                  (loopVarExp, loExp, hiExp, bodyExp, doneLabel)
+              , ty = Types.UNIT
+              }
             end
         | checkExp (Absyn.BreakExp pos) =
             (case loopEndLabel of
-              SOME lbl => {exp = Translate.breakExp lbl, ty = Types.UNIT}
-            | NONE => (ErrorMsg.error pos "Break present outside of loop"
-              ; {exp = Translate.getDummyExp(), ty = Types.BOTTOM}))
+               SOME lbl => {exp = Translate.breakExp lbl, ty = Types.UNIT}
+             | NONE =>
+                 ( ErrorMsg.error pos "Break present outside of loop"
+                 ; {exp = Translate.getDummyExp (), ty = Types.BOTTOM}
+                 ))
         | checkExp (Absyn.LetExp {decs, body, pos}) =
             let
-              fun processDec (dec, {venv = v, tenv = t, expList}) = case transDec (v, t, dec, level, NONE) of
-                    {venv = v', tenv = t', exp = SOME e} => {venv = v', tenv = t', expList = e :: expList}
-                  | {venv = v', tenv = t', exp = NONE} => {venv = v', tenv = t', expList = expList}
+              fun processDec (dec, {venv = v, tenv = t, expList}) =
+                case transDec (v, t, dec, level) of
+                  {venv = v', tenv = t', exp = SOME e} =>
+                    {venv = v', tenv = t', expList = e :: expList}
+                | {venv = v', tenv = t', exp = NONE} =>
+                    {venv = v', tenv = t', expList = expList}
               val {venv = new_venv, tenv = new_tenv, expList} =
                 foldl processDec {venv = venv, tenv = tenv, expList = []} decs
-              val {exp = bodyExp, ty = bodyTy} = transExp (new_venv, new_tenv, level, NONE) body
-              val exprSeq = case expList of
-                [] => bodyExp
-              | _ => Translate.expList (List.rev (bodyExp::expList))
+              val {exp = bodyExp, ty = bodyTy} =
+                transExp (new_venv, new_tenv, level, NONE) body
+              val exprSeq =
+                case expList of
+                  [] => bodyExp
+                | _ => Translate.expList (List.rev (bodyExp :: expList))
             in
               {exp = exprSeq, ty = bodyTy}
             end
@@ -715,7 +806,7 @@ struct
             let
               val {exp = initExp, ty = initType} = checkExp init
               val {exp = sizeExp, ty = sizeType} = checkExp size
-              val () = checkInt ({exp = sizeExp, ty=sizeType}, pos)
+              val () = checkInt ({exp = sizeExp, ty = sizeType}, pos)
             in
               case Symbol.look (tenv, typ) of
                 SOME (Types.ARRAY (typeInArr, uq)) =>
@@ -726,35 +817,38 @@ struct
                           ^ Types.typeToString initType
                           ^ " incorrect type for array of type "
                           ^ Symbol.name typ)
-                     ; {exp = Translate.getDummyExp(), ty = Types.BOTTOM}
+                     ; {exp = Translate.getDummyExp (), ty = Types.BOTTOM}
                      )
                    else
-                     {exp = Translate.arrayExp(sizeExp, initExp), ty = Types.ARRAY (typeInArr, uq)})
+                     { exp = Translate.arrayExp (sizeExp, initExp)
+                     , ty = Types.ARRAY (typeInArr, uq)
+                     })
               | SOME t =>
                   ( ErrorMsg.error pos
                       ("Tried to initialize array with non-array type "
                        ^ Symbol.name typ)
-                  ; {exp = Translate.getDummyExp(), ty = Types.BOTTOM}
+                  ; {exp = Translate.getDummyExp (), ty = Types.BOTTOM}
                   )
               | NONE =>
                   ( ErrorMsg.error pos
                       ("Tried to initialize array with undefined type "
                        ^ Symbol.name typ)
-                  ; {exp = Translate.getDummyExp(), ty = Types.BOTTOM}
+                  ; {exp = Translate.getDummyExp (), ty = Types.BOTTOM}
                   )
             end
       (* | checkExp _ = {exp = Translate.getDummyExp(), ty = Types.BOTTOM} *)
       and trvar (Absyn.SimpleVar (id, pos)) =
             (case Symbol.look (venv, id) of
-               SOME (Env.VarEntry {access, ty}) => {exp = Translate.simpleVar (access, level), ty = ty}
+               SOME (Env.VarEntry {access, ty}) =>
+                 {exp = Translate.simpleVar (access, level), ty = ty}
              | SOME (Env.FunEntry {level, label, ty}) =>
                  ( ErrorMsg.error pos
                      ("function name " ^ Symbol.name id ^ " used as variable")
-                 ; {exp = Translate.getDummyExp(), ty = Types.BOTTOM}
+                 ; {exp = Translate.getDummyExp (), ty = Types.BOTTOM}
                  )
              | NONE =>
                  ( ErrorMsg.error pos ("undefined variable " ^ Symbol.name id)
-                 ; {exp = Translate.getDummyExp(), ty = Types.BOTTOM}
+                 ; {exp = Translate.getDummyExp (), ty = Types.BOTTOM}
                  ))
         | trvar (Absyn.FieldVar (v, id, pos)) =
             let
@@ -767,27 +861,28 @@ struct
 
                     fun findWithIndex ([], _, _) = (NONE, 0)
                       | findWithIndex ((symb, typ) :: rest, target, idx) =
-                          if symb = target then
-                            (SOME (symb, typ), idx)
-                          else
-                            findWithIndex (rest, target, idx+1)
+                          if symb = target then (SOME (symb, typ), idx)
+                          else findWithIndex (rest, target, idx + 1)
 
                     val (matching_id, idx) = findWithIndex (rec_fields, id, 0)
                   in
                     case matching_id of
-                      SOME (_, typ) => {exp = Translate.recordAccessExp(recVarExp, idx), ty = typ}
+                      SOME (_, typ) =>
+                        { exp = Translate.recordAccessExp (recVarExp, idx)
+                        , ty = typ
+                        }
                     | NONE =>
                         ( ErrorMsg.error pos
                             ("field " ^ Symbol.name id
                              ^ " not found on record type")
-                        ; {exp = Translate.getDummyExp(), ty = Types.BOTTOM}
+                        ; {exp = Translate.getDummyExp (), ty = Types.BOTTOM}
                         )
                   end
               | t =>
                   ( ErrorMsg.error pos
                       ("dot of field " ^ Symbol.name id ^ " on non-record type "
                        ^ Types.typeToString t)
-                  ; {exp = Translate.getDummyExp(), ty = Types.BOTTOM}
+                  ; {exp = Translate.getDummyExp (), ty = Types.BOTTOM}
                   )
             end
         | trvar (Absyn.SubscriptVar (v, exp, pos)) =
@@ -801,12 +896,13 @@ struct
                   ()
             in
               case ty of
-                Types.ARRAY (t, uq) => {exp = Translate.arrayAcessExp(varExp, indexExp), ty = t}
+                Types.ARRAY (t, uq) =>
+                  {exp = Translate.arrayAcessExp (varExp, indexExp), ty = t}
               | t =>
                   ( ErrorMsg.error pos
                       ("subscript of variable of non-array type "
                        ^ Types.typeToString t)
-                  ; {exp = Translate.getDummyExp(), ty = Types.BOTTOM}
+                  ; {exp = Translate.getDummyExp (), ty = Types.BOTTOM}
                   ) (* could make this message more useful *)
             end
 
@@ -815,16 +911,17 @@ struct
     end
 
   fun transProg exp =
-    let val mainLevel = Translate.newLevel {parent = Translate.outermost, name = Temp.newlabel (), formals = []}
-        val () = FindEscape.findEscape exp
-    in 
+    let
+      val mainLevel =
+        Translate.newLevel
+          {parent = Translate.outermost, name = Temp.newlabel (), formals = []}
+      val () = FindEscape.findEscape exp
+    in
       transExp (Env.base_venv, Env.base_tenv, mainLevel, NONE) exp
     end
 
-  fun printIrTree exp = 
-    let
-      val {exp = irExp, ty = _} = transProg exp
-    in
-      Translate.printTree irExp
+  fun printIrTree exp =
+    let val {exp = irExp, ty = _} = transProg exp
+    in Translate.printTree irExp
     end
 end
