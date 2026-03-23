@@ -256,4 +256,22 @@ struct
         Ex (Tree.NAME label)
     end
 
+    fun arrayExp (size, init) = 
+        let
+            val sizeExp = unEx size
+            val initExp = unEx init
+        in
+            Ex (Frame.externalCall ("initArray", [sizeExp, initExp]))
+        end
+
+    fun arrayAcessExp (arr, index) =
+        let
+            val arrExp = unEx arr
+            val indexExp = unEx index
+        in
+            Ex (Tree.ESEQ(Tree.EXP (Frame.externalCall ("boundsCheck", [arrExp, indexExp])), 
+                        Tree.MEM(Tree.BINOP(Tree.PLUS, arrExp, 
+                            Tree.BINOP(Tree.MUL, indexExp, Tree.CONST Frame.wordsize)))))
+        end
+
 end

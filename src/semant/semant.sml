@@ -715,9 +715,10 @@ struct
             end
         | checkExp (Absyn.ArrayExp {typ, size, init, pos}) =
             let
-              val {exp = _, ty = initType} = checkExp init
+              val {exp = initExp, ty = initType} = checkExp init
+              val {exp = sizeExp, ty = sizeType} = checkExp size
+              val () = checkInt ({exp = sizeExp, ty=sizeType}, pos)
             in
-              checkInt (checkExp size, pos);
               case Symbol.look (tenv, typ) of
                 SOME (Types.ARRAY (typeInArr, uq)) =>
                   (* Arrays are invariant over their type *)
@@ -730,7 +731,7 @@ struct
                      ; {exp = Translate.getDummyExp(), ty = Types.BOTTOM}
                      )
                    else
-                     {exp = Translate.getDummyExp(), ty = Types.ARRAY (typeInArr, uq)})
+                     {exp = Translate.arrayExp(sizeExp, initExp), ty = Types.ARRAY (typeInArr, uq)})
               | SOME t =>
                   ( ErrorMsg.error pos
                       ("Tried to initialize array with non-array type "
@@ -786,8 +787,8 @@ struct
             end
         | trvar (Absyn.SubscriptVar (v, exp, pos)) =
             let
-              val {exp = e, ty = ty} = trvar v
-              val {exp = e2, ty = t2} = checkExp exp
+              val {exp = varExp, ty = ty} = trvar v
+              val {exp = indexExp, ty = t2} = checkExp exp
               val () =
                 if not (isSubtype (t2, Types.INT)) then
                   (ErrorMsg.error pos "subscript must be an integer"; ())
@@ -795,7 +796,7 @@ struct
                   ()
             in
               case ty of
-                Types.ARRAY (t, uq) => {exp = Translate.getDummyExp(), ty = t}
+                Types.ARRAY (t, uq) => {exp = Translate.arrayAcessExp(varExp, indexExp), ty = t}
               | t =>
                   ( ErrorMsg.error pos
                       ("subscript of variable of non-array type "

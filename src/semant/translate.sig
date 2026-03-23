@@ -40,6 +40,8 @@ sig
     val forExp: exp * exp * exp * exp * Temp.label -> exp
     val breakExp: Temp.label -> exp
     val stringLit: string -> exp
+    val arrayExp: exp * exp -> exp
+    val arrayAcessExp: exp * exp -> exp
 
 end
 
