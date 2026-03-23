@@ -9,8 +9,8 @@ sig
   val printIrTree: Absyn.exp -> unit
 
   val transVar: venv * tenv * Absyn.var -> expty
-  val transExp: (venv * bool) * tenv * Translate.level -> Absyn.exp -> expty
-  val transDec: venv * tenv * Absyn.dec * Translate.level -> {venv: venv, tenv: tenv, exp: Translate.exp option}
+  val transExp: venv * tenv * Translate.level * Temp.label option-> Absyn.exp -> expty
+  val transDec: venv * tenv * Absyn.dec * Translate.level * Temp.label option -> {venv: venv, tenv: tenv, exp: Translate.exp option}
   val transTy: tenv * Absyn.ty -> Types.ty
 
 end =
@@ -105,9 +105,9 @@ struct
     else
       ErrorMsg.error pos "incompatible types in comparison"
 
-  fun transDec (venv: Env.enventry Symbol.table, tenv, Absyn.VarDec {name, escape, typ, init, pos}, level) =
+  fun transDec (venv: Env.enventry Symbol.table, tenv, Absyn.VarDec {name, escape, typ, init, pos}, level, loopEndLabel) =
         let
-          val {exp = e, ty = exp_ty} = transExp ((venv, false), tenv, level) init
+          val {exp = e, ty = exp_ty} = transExp (venv, tenv, level, NONE) init
           val type_annotation =
             case typ of
               SOME (t_symbol, _) =>
@@ -148,7 +148,7 @@ struct
         in
           {venv = newVenv, tenv = tenv, exp = SOME varInitExp}
         end
-    | transDec (venv, tenv, Absyn.TypeDec dec_list, level) =
+    | transDec (venv, tenv, Absyn.TypeDec dec_list, level, loopEndLabel) =
         let
           fun readInTypeName ({name, ty, pos}, nameTable) =
             let
@@ -325,7 +325,7 @@ struct
         in
           {venv = venv, tenv = newTenv, exp = NONE}
         end
-    | transDec (venv, tenv, Absyn.FunctionDec dec_list, level) =
+    | transDec (venv, tenv, Absyn.FunctionDec dec_list, level, loopEndLabel) =
         let
           fun getParamTypes ({name, escape, typ, pos}, acc) =
             let
@@ -403,7 +403,7 @@ struct
               val (funcLevel, functionVenv) = foldl addParamTypesToVenv (funLevel, venv') (ListPair.zip(paramAccesses, params))
               
               val {exp = bodyExp, ty = bodyType} =
-                transExp ((functionVenv, false), tenv, funcLevel) body
+                transExp (functionVenv, tenv, funcLevel, NONE) body
             in
               (if
                 not (isSubtype (bodyType, returnType))
@@ -445,7 +445,7 @@ struct
           {tenv = tenv, venv = venvWithFunctionGroup, exp = SOME funDecExpList}
         end
 
-  and transExp ((venv, isLoop), tenv, level) =
+  and transExp (venv, tenv, level, loopEndLabel) =
     let
       fun checkExp (Absyn.VarExp var) = trvar var
         | checkExp Absyn.NilExp = {exp = Translate.getDummyExp(), ty = Types.NIL}
@@ -664,44 +664,45 @@ struct
             end
 
         | checkExp (Absyn.WhileExp {test, body, pos}) =
-            ( checkInt (checkExp test, pos)
-            (*call transexp, because we need to set isLoop to true!*)
-            ; case transExp ((venv, true), tenv, level) body of
-                {exp = _, ty = Types.UNIT} => ()
-              | _ =>
-                  ErrorMsg.error pos
-                    "Body of while loop produces non-unit value"
-            ; {exp = Translate.getDummyExp(), ty = Types.UNIT}
-            )
+            let
+              val {exp = testExp, ty = testTy} = checkExp test
+              val () = checkInt ({exp = testExp, ty = testTy}, pos)
+              val doneLabel = Temp.newlabel()
+              (*call transexp, because we need to set isLoop to true!*)
+              val {exp = bodyExp, ty = bodyTy} = transExp (venv, tenv, level, SOME doneLabel) body
+              val () = if isSubtype (bodyTy, Types.UNIT) then()
+                        else ErrorMsg.error pos "Body of while loop produces non-unit value"
+            in
+              {exp = Translate.whileExp(testExp, bodyExp, doneLabel), ty = Types.UNIT}
+            end
 
         | checkExp (Absyn.ForExp {var, escape, lo, hi, body, pos}) =
             let
               val access = Translate.allocLocal level (!escape)
               val newVenv = Symbol.enter (venv, var, Env.VarEntry{access=access, ty=Types.READ_ONLY_INT})
+              val doneLabel = Temp.newlabel()
             in
               checkInt (checkExp lo, pos);
               checkInt (checkExp hi, pos);
-              case transExp ((newVenv, true), tenv, level) body of
+              case transExp (newVenv, tenv, level, SOME doneLabel) body of
                 {exp = _, ty = Types.UNIT} => ()
               | _ =>
                   ErrorMsg.error pos "Body of for loop produces non-unit value";
               {exp = Translate.getDummyExp(), ty = Types.UNIT}
             end
         | checkExp (Absyn.BreakExp pos) =
-            if isLoop then
-              {exp = Translate.getDummyExp(), ty = Types.BOTTOM}
-            else
-              ( ErrorMsg.error pos "Break present outside of loop"
-              ; {exp = Translate.getDummyExp(), ty = Types.BOTTOM}
-              )
+            (case loopEndLabel of
+              SOME lbl => {exp = Translate.breakExp lbl, ty = Types.UNIT}
+            | NONE => (ErrorMsg.error pos "Break present outside of loop"
+              ; {exp = Translate.getDummyExp(), ty = Types.BOTTOM}))
         | checkExp (Absyn.LetExp {decs, body, pos}) =
             let
-              fun processDec (dec, {venv = v, tenv = t, expList}) = case transDec (v, t, dec, level) of
+              fun processDec (dec, {venv = v, tenv = t, expList}) = case transDec (v, t, dec, level, NONE) of
                     {venv = v', tenv = t', exp = SOME e} => {venv = v', tenv = t', expList = e :: expList}
                   | {venv = v', tenv = t', exp = NONE} => {venv = v', tenv = t', expList = expList}
               val {venv = new_venv, tenv = new_tenv, expList} =
                 foldl processDec {venv = venv, tenv = tenv, expList = []} decs
-              val {exp = bodyExp, ty = bodyTy} = transExp ((new_venv, false), new_tenv, level) body
+              val {exp = bodyExp, ty = bodyTy} = transExp (new_venv, new_tenv, level, NONE) body
               (* let translates to a sequence of declarations followed by body *)
               val exprSeq = case expList of
                 [] => Translate.getDummyExp()
@@ -808,7 +809,7 @@ struct
     let val mainLevel = Translate.newLevel {parent = Translate.outermost, name = Temp.newlabel (), formals = []}
         val () = FindEscape.findEscape exp
     in 
-      transExp (Env.base_venv, Env.base_tenv, mainLevel) exp
+      transExp (Env.base_venv, Env.base_tenv, mainLevel, NONE) exp
     end
 
   fun printIrTree exp = 

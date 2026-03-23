@@ -4,7 +4,7 @@ sig
   datatype enventry = VarEntry of {access: Translate.access, ty: ty}
                 | FunEntry of {level: Translate.level, label: Temp.label, ty: ty}
   val base_tenv: ty Symbol.table (*predefined types*)
-  val base_venv: ((enventry Symbol.table) * bool) (*predefined functions*)
+  val base_venv: enventry Symbol.table (*predefined functions*)
   val getFunEntry: Translate.level * ty * bool list -> enventry
 end =
 struct
@@ -31,7 +31,7 @@ struct
     in
       foldl addPairToTable table pairs
     end
-  val base_venv: ((enventry Symbol.table) * bool) =
+  val base_venv: enventry Symbol.table =
     let
       val table = Symbol.empty
       val pairs =
@@ -51,6 +51,6 @@ struct
         , (Symbol.symbol "exit", getFunEntry (Translate.outermost, Types.ARROW ([Types.INT], Types.UNIT), [false]))
         ]
     in
-      ((foldl addPairToTable table pairs), false)
+      foldl addPairToTable table pairs
     end
 end

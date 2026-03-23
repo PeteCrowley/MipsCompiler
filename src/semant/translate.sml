@@ -205,4 +205,22 @@ struct
                                 ], Tree.TEMP r))
         end
 
+    fun whileExp (cond, body, doneLabel) =
+        let
+            val testLabel = Temp.newlabel()
+            val bodyLabel = Temp.newlabel()
+            val condCx = unCx cond
+            val bodyEx = unNx body
+        in
+            Nx (seq[Tree.LABEL testLabel,
+                    condCx(bodyLabel, doneLabel),
+                    Tree.LABEL bodyLabel,
+                    bodyEx,
+                    Tree.JUMP(Tree.NAME testLabel, [testLabel]),
+                    Tree.LABEL doneLabel
+                    ])
+        end
+
+    fun breakExp doneLabel = Nx (Tree.JUMP(Tree.NAME doneLabel, [doneLabel]))
+
 end
