@@ -670,8 +670,9 @@ struct
               val doneLabel = Temp.newlabel()
               (*call transexp, because we need to set isLoop to true!*)
               val {exp = bodyExp, ty = bodyTy} = transExp (venv, tenv, level, SOME doneLabel) body
-              val () = if isSubtype (bodyTy, Types.UNIT) then()
-                        else ErrorMsg.error pos "Body of while loop produces non-unit value"
+              val () = if not (areTypesEqual(bodyTy, Types.UNIT) orelse areTypesEqual(bodyTy, Types.BOTTOM)) 
+                        then ErrorMsg.error pos "Body of while loop produces non-unit value"
+                        else ()
             in
               {exp = Translate.whileExp(testExp, bodyExp, doneLabel), ty = Types.UNIT}
             end
@@ -679,16 +680,19 @@ struct
         | checkExp (Absyn.ForExp {var, escape, lo, hi, body, pos}) =
             let
               val access = Translate.allocLocal level (!escape)
+              val loopVarExp = Translate.simpleVar (access, level)
               val newVenv = Symbol.enter (venv, var, Env.VarEntry{access=access, ty=Types.READ_ONLY_INT})
               val doneLabel = Temp.newlabel()
+              val {exp = loExp, ty = loTy} = checkExp lo
+              val {exp = hiExp, ty = hiTy} = checkExp hi
+              val {exp = bodyExp, ty = bodyTy} = transExp (newVenv, tenv, level, SOME doneLabel) body
+              val () = checkInt ({exp = loExp, ty = loTy}, pos)
+              val () = checkInt ({exp = hiExp, ty = hiTy}, pos)
+              val () = if not (areTypesEqual(bodyTy, Types.UNIT) orelse areTypesEqual(bodyTy, Types.BOTTOM)) 
+                          then ErrorMsg.error pos "Body of for loop produces non-unit value"
+                          else ()
             in
-              checkInt (checkExp lo, pos);
-              checkInt (checkExp hi, pos);
-              case transExp (newVenv, tenv, level, SOME doneLabel) body of
-                {exp = _, ty = Types.UNIT} => ()
-              | _ =>
-                  ErrorMsg.error pos "Body of for loop produces non-unit value";
-              {exp = Translate.getDummyExp(), ty = Types.UNIT}
+              {exp = Translate.forExp(loopVarExp, loExp, hiExp, bodyExp, doneLabel), ty = Types.UNIT}
             end
         | checkExp (Absyn.BreakExp pos) =
             (case loopEndLabel of
@@ -703,7 +707,6 @@ struct
               val {venv = new_venv, tenv = new_tenv, expList} =
                 foldl processDec {venv = venv, tenv = tenv, expList = []} decs
               val {exp = bodyExp, ty = bodyTy} = transExp (new_venv, new_tenv, level, NONE) body
-              (* let translates to a sequence of declarations followed by body *)
               val exprSeq = case expList of
                 [] => Translate.getDummyExp()
               | _ => Translate.expList (List.rev (bodyExp::expList))

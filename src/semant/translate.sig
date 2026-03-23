@@ -34,6 +34,7 @@ sig
     val strNeqExp : exp * exp -> exp
     val ifExp: exp * exp * exp -> exp
     val whileExp: exp * exp * Temp.label -> exp
+    val forExp: exp * exp * exp * exp * Temp.label -> exp
     val breakExp: Temp.label -> exp
 
 end

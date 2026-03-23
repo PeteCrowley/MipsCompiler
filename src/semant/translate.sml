@@ -221,6 +221,26 @@ struct
                     ])
         end
 
+    fun forExp (loopVarLoc, lo, hi, body, doneLabel) =
+        let
+          val L1 = Temp.newlabel()
+          val L2 = Temp.newlabel()
+          val loopVarEx = unEx loopVarLoc
+          val loEx = unEx lo
+          val hiEx = unEx hi
+
+        in
+            Nx (seq[Tree.MOVE(loopVarEx, loEx),
+                    Tree.CJUMP(Tree.LE, loopVarEx, hiEx, L2, doneLabel),
+                    Tree.LABEL L1,
+                    Tree.MOVE(loopVarEx, Tree.BINOP(Tree.PLUS, loopVarEx, Tree.CONST 1)),
+                    Tree.LABEL L2,
+                    unNx body,
+                    Tree.CJUMP(Tree.LT, loopVarEx, hiEx, L1, doneLabel),
+                    Tree.LABEL doneLabel
+                    ])
+        end
+
     fun breakExp doneLabel = Nx (Tree.JUMP(Tree.NAME doneLabel, [doneLabel]))
 
 end

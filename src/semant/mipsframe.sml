@@ -86,7 +86,7 @@ struct
       val label = #name frame
       val formalAccesses = #formals frame
       (* print numlocals in frame for debugging *)
-      val () = print ("Number of locals in frame: " ^ Int.toString (!(#numLocalsInFrame frame)) ^ "\n")
+      (* val () = print ("Number of locals in frame: " ^ Int.toString (!(#numLocalsInFrame frame)) ^ "\n") *)
 
     in
       Tree.SEQ(prologue(label, stackSpace, formalAccesses) , epilogue bodyExp)
