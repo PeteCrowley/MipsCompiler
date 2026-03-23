@@ -11,6 +11,7 @@ sig
     val formals : level -> access list
     val allocLocal : level -> bool -> access
     val getDummyExp: unit -> exp
+    val getZeroExp: unit -> exp
     val simpleVar : access * level -> exp
     val intExp : int -> exp
     val assignExp : exp * exp -> exp

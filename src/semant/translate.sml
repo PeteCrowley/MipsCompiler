@@ -97,6 +97,7 @@ struct
         | unCx (Cx genstm) = genstm
 
     fun getDummyExp () = Nx (Tree.EXP (Tree.CONST 0))
+    fun getZeroExp () = Ex (Tree.CONST 0)
 
     fun printTree exp = 
         let

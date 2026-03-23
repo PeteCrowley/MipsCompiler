@@ -448,7 +448,7 @@ struct
   and transExp (venv, tenv, level, loopEndLabel) =
     let
       fun checkExp (Absyn.VarExp var) = trvar var
-        | checkExp Absyn.NilExp = {exp = Translate.getDummyExp(), ty = Types.NIL}
+        | checkExp Absyn.NilExp = {exp = Translate.getZeroExp(), ty = Types.NIL}
         | checkExp (Absyn.IntExp i) = {exp = Translate.intExp i, ty = Types.INT}
         | checkExp (Absyn.StringExp (str, pos)) = {exp = Translate.stringLit str, ty = Types.STRING}
 
