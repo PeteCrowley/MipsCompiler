@@ -1,0 +1,11 @@
+SEQ(
+ MOVE(
+  TEMP t100,
+  CONST 5),
+ SEQ(
+  MOVE(
+   TEMP t101,
+   CONST 10),
+  MOVE(
+   TEMP t100,
+   TEMP t101)))

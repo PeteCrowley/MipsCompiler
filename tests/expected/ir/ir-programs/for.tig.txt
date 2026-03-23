@@ -1,0 +1,56 @@
+SEQ(
+ MOVE(
+  TEMP t100,
+  CONST 0),
+ SEQ(
+  CJUMP(LE,
+   TEMP t100,
+   CONST 10,
+   L36,L31),
+  SEQ(
+   LABEL L35,
+   SEQ(
+    MOVE(
+     TEMP t100,
+     BINOP(PLUS,
+      TEMP t100,
+      CONST 1)),
+    SEQ(
+     LABEL L36,
+     SEQ(
+      EXP(
+       ESEQ(
+        SEQ(
+         CJUMP(EQ,
+          TEMP t100,
+          CONST 5,
+          L32,L33),
+         SEQ(
+          LABEL L32,
+          SEQ(
+           MOVE(
+            TEMP t101,
+            ESEQ(
+             JUMP(
+              NAME L31),
+             CONST 0)),
+           SEQ(
+            JUMP(
+             NAME L34),
+            SEQ(
+             LABEL L33,
+             SEQ(
+              MOVE(
+               TEMP t101,
+               ESEQ(
+                EXP(
+                 CONST 0),
+                CONST 0)),
+              LABEL L34)))))),
+        TEMP t101)),
+      SEQ(
+       CJUMP(LT,
+        TEMP t100,
+        CONST 10,
+        L35,L31),
+       LABEL L31)))))))

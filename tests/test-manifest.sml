@@ -64,6 +64,7 @@ struct
 
   fun ir (input, output) =
     let
+      val () = Temp.reset()
       val absyn = Parse.parse input
       fun do_it () = Semant.printIrTree absyn
     in
@@ -89,6 +90,6 @@ struct
       , test_fn = typecheck
       }
     , {test_name = "escape", test_dirs = ["escape-programs"], test_fn = escape}
-    , {test_name = "ir", test_dirs = ["ir-programs"], test_fn = ir}
+    , {test_name = "ir", test_dirs = ["ir-programs", "appel-programs"], test_fn = ir}
     ]
 end

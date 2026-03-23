@@ -1,0 +1,37 @@
+SEQ(
+ MOVE(
+  TEMP t101,
+  ESEQ(
+   SEQ(
+    MOVE(
+     TEMP t100,
+     CALL(
+      NAME malloc,
+       BINOP(MUL,
+        CONST 2,
+        CONST 4))),
+    SEQ(
+     MOVE(
+      MEM(
+       BINOP(PLUS,
+        TEMP t100,
+        CONST 0)),
+      CONST 5),
+     MOVE(
+      MEM(
+       BINOP(PLUS,
+        TEMP t100,
+        CONST 4)),
+      NAME L29))),
+   TEMP t100)),
+ SEQ(
+  EXP(
+   MEM(
+    BINOP(PLUS,
+     TEMP t101,
+     CONST 0))),
+  EXP(
+   MEM(
+    BINOP(PLUS,
+     TEMP t101,
+     CONST 4)))))

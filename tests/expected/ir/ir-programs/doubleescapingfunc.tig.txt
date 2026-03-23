@@ -1,0 +1,11 @@
+SEQ(
+ MOVE(
+  MEM(
+   BINOP(PLUS,
+    TEMP FP,
+    CONST ~4)),
+  CONST 5),
+ EXP(
+  CALL(
+   NAME L23,
+    TEMP FP)))

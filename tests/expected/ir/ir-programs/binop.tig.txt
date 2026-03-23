@@ -1,0 +1,150 @@
+SEQ(
+ MOVE(
+  TEMP t100,
+  CONST 1),
+ SEQ(
+  MOVE(
+   TEMP t101,
+   CONST 2),
+  SEQ(
+   MOVE(
+    TEMP t102,
+    NAME L40),
+   SEQ(
+    MOVE(
+     TEMP t103,
+     NAME L41),
+    SEQ(
+     MOVE(
+      TEMP t104,
+      BINOP(MINUS,
+       TEMP t101,
+       TEMP t100)),
+     SEQ(
+      MOVE(
+       TEMP t105,
+       BINOP(PLUS,
+        TEMP t101,
+        TEMP t100)),
+      SEQ(
+       MOVE(
+        TEMP t106,
+        ESEQ(
+         SEQ(
+          MOVE(
+           TEMP t107,
+           CONST 1),
+          SEQ(
+           CJUMP(LT,
+            TEMP t100,
+            TEMP t101,
+            L42,L43),
+           SEQ(
+            LABEL L43,
+            SEQ(
+             MOVE(
+              TEMP t107,
+              CONST 0),
+             LABEL L42)))),
+         TEMP t107)),
+       SEQ(
+        MOVE(
+         TEMP t108,
+         ESEQ(
+          SEQ(
+           MOVE(
+            TEMP t109,
+            CONST 1),
+           SEQ(
+            CJUMP(EQ,
+             CALL(
+              NAME strcmp,
+               TEMP t102,
+               TEMP t103),
+             CONST 0,
+             L44,L45),
+            SEQ(
+             LABEL L45,
+             SEQ(
+              MOVE(
+               TEMP t109,
+               CONST 0),
+              LABEL L44)))),
+          TEMP t109)),
+        SEQ(
+         MOVE(
+          TEMP t110,
+          ESEQ(
+           SEQ(
+            MOVE(
+             TEMP t111,
+             CONST 1),
+            SEQ(
+             CJUMP(NE,
+              TEMP t100,
+              TEMP t101,
+              L46,L47),
+             SEQ(
+              LABEL L47,
+              SEQ(
+               MOVE(
+                TEMP t111,
+                CONST 0),
+               LABEL L46)))),
+           TEMP t111)),
+         SEQ(
+          MOVE(
+           TEMP t112,
+           ESEQ(
+            SEQ(
+             MOVE(
+              TEMP t113,
+              CONST 1),
+             SEQ(
+              CJUMP(GE,
+               CALL(
+                NAME strcmp,
+                 TEMP t102,
+                 TEMP t103),
+               CONST 0,
+               L48,L49),
+              SEQ(
+               LABEL L49,
+               SEQ(
+                MOVE(
+                 TEMP t113,
+                 CONST 0),
+                LABEL L48)))),
+            TEMP t113)),
+          SEQ(
+           MOVE(
+            TEMP t114,
+            ESEQ(
+             SEQ(
+              MOVE(
+               TEMP t115,
+               CONST 1),
+              SEQ(
+               CJUMP(LT,
+                CALL(
+                 NAME strcmp,
+                  NAME L50,
+                  NAME L51),
+                CONST 0,
+                L54,L55),
+               SEQ(
+                LABEL L55,
+                SEQ(
+                 MOVE(
+                  TEMP t115,
+                  CONST 0),
+                 LABEL L54)))),
+             TEMP t115)),
+           EXP(
+            BINOP(PLUS,
+             BINOP(PLUS,
+              BINOP(PLUS,
+               TEMP t106,
+               TEMP t110),
+              TEMP t104),
+             TEMP t105)))))))))))))

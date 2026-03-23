@@ -1,0 +1,20 @@
+SEQ(
+ MOVE(
+  TEMP t100,
+  CALL(
+   NAME initArray,
+    CONST 3,
+    CONST 1)),
+ EXP(
+  ESEQ(
+   EXP(
+    CALL(
+     NAME boundsCheck,
+      TEMP t100,
+      CONST 2)),
+   MEM(
+    BINOP(PLUS,
+     TEMP t100,
+     BINOP(MUL,
+      CONST 2,
+      CONST 4))))))

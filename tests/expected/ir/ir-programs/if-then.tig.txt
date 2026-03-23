@@ -1,0 +1,88 @@
+SEQ(
+ MOVE(
+  TEMP t101,
+  ESEQ(
+   SEQ(
+    CJUMP(GT,
+     CONST 4,
+     CONST 5,
+     L13,L14),
+    SEQ(
+     LABEL L13,
+     SEQ(
+      MOVE(
+       TEMP t100,
+       CONST 10),
+      SEQ(
+       JUMP(
+        NAME L15),
+       SEQ(
+        LABEL L14,
+        SEQ(
+         MOVE(
+          TEMP t100,
+          CONST 1),
+         LABEL L15)))))),
+   TEMP t100)),
+ SEQ(
+  MOVE(
+   TEMP t103,
+   ESEQ(
+    SEQ(
+     CJUMP(EQ,
+      CONST 1,
+      CONST 1,
+      L16,L17),
+     SEQ(
+      LABEL L16,
+      SEQ(
+       MOVE(
+        TEMP t102,
+        ESEQ(
+         EXP(
+          CONST 0),
+         CONST 0)),
+       SEQ(
+        JUMP(
+         NAME L18),
+        SEQ(
+         LABEL L17,
+         SEQ(
+          MOVE(
+           TEMP t102,
+           ESEQ(
+            EXP(
+             CONST 0),
+            CONST 0)),
+          LABEL L18)))))),
+    TEMP t102)),
+  EXP(
+   ESEQ(
+    SEQ(
+     CJUMP(LT,
+      TEMP t101,
+      CONST 5,
+      L19,L20),
+     SEQ(
+      LABEL L19,
+      SEQ(
+       MOVE(
+        TEMP t104,
+        ESEQ(
+         EXP(
+          CONST 0),
+         CONST 0)),
+       SEQ(
+        JUMP(
+         NAME L21),
+        SEQ(
+         LABEL L20,
+         SEQ(
+          MOVE(
+           TEMP t104,
+           ESEQ(
+            EXP(
+             CONST 0),
+            CONST 0)),
+          LABEL L21)))))),
+    TEMP t104))))

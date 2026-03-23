@@ -1,0 +1,17 @@
+SEQ(
+ EXP(
+  CONST 1),
+ SEQ(
+  EXP(
+   CONST 2),
+  SEQ(
+   EXP(
+    CONST 3),
+   SEQ(
+    EXP(
+     CONST 4),
+    SEQ(
+     EXP(
+      CONST 5),
+     EXP(
+      CONST 6))))))
