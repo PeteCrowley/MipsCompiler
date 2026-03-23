@@ -274,4 +274,30 @@ struct
                             Tree.BINOP(Tree.MUL, indexExp, Tree.CONST Frame.wordsize)))))
         end
 
+    fun recordExp fieldExps =
+        let
+          val numFields = List.length fieldExps
+          val exFields = List.map unEx fieldExps
+          val r = Temp.newtemp()
+
+          fun initializeFields ([initExp], ind, startAddrExp) = Tree.MOVE(Tree.MEM(Tree.BINOP(Tree.PLUS, startAddrExp, Tree.CONST (ind * Frame.wordsize))), initExp)
+            | initializeFields ((initExp::rest), ind, startAddrExp) = 
+                Tree.SEQ(Tree.MOVE(Tree.MEM(Tree.BINOP(Tree.PLUS, startAddrExp, Tree.CONST (ind * Frame.wordsize))), initExp), initializeFields(rest, ind + 1, startAddrExp))
+            | initializeFields ([], _, _) = Tree.EXP(Tree.CONST 0)
+
+        in
+          Ex (Tree.ESEQ(seq[Tree.MOVE(Tree.TEMP r, 
+                                    Frame.externalCall ("malloc", [Tree.BINOP(
+                                        Tree.MUL, Tree.CONST numFields, Tree.CONST Frame.wordsize)])),
+                                initializeFields(exFields, 0, Tree.TEMP r)
+                            ], Tree.TEMP r))
+        end
+
+    fun recordAccessExp (record, fieldIndex) =
+        let
+            val recordExp = unEx record
+        in
+            Ex (Tree.MEM(Tree.BINOP(Tree.PLUS, recordExp, Tree.CONST (fieldIndex * Frame.wordsize))))
+        end
+
 end

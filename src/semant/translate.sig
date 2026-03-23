@@ -42,6 +42,8 @@ sig
     val stringLit: string -> exp
     val arrayExp: exp * exp -> exp
     val arrayAcessExp: exp * exp -> exp
+    val recordExp: exp list -> exp
+    val recordAccessExp: exp * int -> exp
 
 end
 

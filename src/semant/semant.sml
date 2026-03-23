@@ -282,7 +282,7 @@ struct
                           (nameTable, name, (Absyn.RecordTy fieldList, 1, uq))
 
                         val (fl, newTenv, newNameTable) =
-                          foldl f ([], recordTenv, recordNameTable) fieldList
+                          foldr f ([], recordTenv, recordNameTable) fieldList
                       in
                         fl
                       end
@@ -572,7 +572,7 @@ struct
                           ^ Symbol.name typ)
                      else
                        ()
-                   fun checkRecordFields (providedFields, []) = ()
+                   fun checkRecordFields (providedFields, []) = []
                      | checkRecordFields (providedFields, (id, ty) :: rest) =
                          ( case
                              List.find (fn (s, expr, p) => s = id)
@@ -583,26 +583,27 @@ struct
                                  val {exp = e, ty = expr_ty} = checkExp expr
                                in
                                  if not (isSubtype (expr_ty, ty)) then
-                                   ErrorMsg.error p
+                                   (ErrorMsg.error p
                                      ("Field " ^ Symbol.name id
                                       ^ " has incorrect type for record type "
-                                      ^ Symbol.name typ)
+                                      ^ Symbol.name typ);
+                                      Translate.getDummyExp() :: (checkRecordFields (providedFields, rest)))
                                  else
-                                   ()
+                                   e :: (checkRecordFields (providedFields, rest))
 
                                end
                            | NONE =>
-                               ErrorMsg.error pos
+                               (ErrorMsg.error pos
                                  ("Field " ^ Symbol.name id
                                   ^
                                   " not found in initialization of record type "
-                                  ^ Symbol.name typ)
-                         ; checkRecordFields (providedFields, rest)
+                                  ^ Symbol.name typ) 
+                                  ; Translate.getDummyExp() :: (checkRecordFields (providedFields, rest)))
                          )
+                  (* condition 3: all the expected fields must be provided with the correct expression type *)
+                  val fieldExpList = checkRecordFields (fields, expectedFieldList)
                  in
-                   (* condition 3: all the expected fields must be provided with the correct expression type *)
-                   checkRecordFields (fields, expectedFieldList);
-                   {exp = Translate.getDummyExp(), ty = Types.RECORD rec_type}
+                   {exp = Translate.recordExp fieldExpList, ty = Types.RECORD rec_type}
                  end
              | _ =>
                  ( ErrorMsg.error pos "Undefined record type"
@@ -760,17 +761,24 @@ struct
                  ))
         | trvar (Absyn.FieldVar (v, id, pos)) =
             let
-              val {exp = e, ty = ty} = trvar v
+              val {exp = recVarExp, ty = ty} = trvar v
             in
               case ty of
                 Types.RECORD (record_func, uq) =>
                   let
-                    fun do_ids_match (symb, typ) = symb = id
                     val rec_fields = record_func ()
-                    val matching_id = List.find do_ids_match rec_fields
+
+                    fun findWithIndex ([], _, _) = (NONE, 0)
+                      | findWithIndex ((symb, typ) :: rest, target, idx) =
+                          if symb = target then
+                            (SOME (symb, typ), idx)
+                          else
+                            findWithIndex (rest, target, idx+1)
+
+                    val (matching_id, idx) = findWithIndex (rec_fields, id, 0)
                   in
                     case matching_id of
-                      SOME (_, typ) => {exp = Translate.getDummyExp(), ty = typ}
+                      SOME (_, typ) => {exp = Translate.recordAccessExp(recVarExp, idx), ty = typ}
                     | NONE =>
                         ( ErrorMsg.error pos
                             ("field " ^ Symbol.name id
