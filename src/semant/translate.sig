@@ -26,6 +26,13 @@ sig
     val geExp : exp * exp -> exp
     val eqExp : exp * exp -> exp
     val neqExp : exp * exp -> exp
+    val strLtExp : exp * exp -> exp
+    val strLeExp : exp * exp -> exp
+    val strGtExp : exp * exp -> exp
+    val strGeExp : exp * exp -> exp
+    val strEqExp : exp * exp -> exp
+    val strNeqExp : exp * exp -> exp
+
 
 end
 

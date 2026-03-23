@@ -168,11 +168,20 @@ struct
     fun mulExp (e1, e2) = Ex (Tree.BINOP(Tree.MUL, unEx e1, unEx e2))
     fun divExp (e1, e2) = Ex (Tree.BINOP(Tree.DIV, unEx e1, unEx e2))
 
-    fun ltExp (eq, e2) = Cx (fn (t,f) => (Tree.CJUMP(Tree.LT, unEx eq, unEx e2, t, f)))
-    fun leExp (eq, e2) = Cx (fn (t,f) => (Tree.CJUMP(Tree.LE, unEx eq, unEx e2, t, f)))
-    fun gtExp (eq, e2) = Cx (fn (t,f) => (Tree.CJUMP(Tree.GT, unEx eq, unEx e2, t, f)))
-    fun geExp (eq, e2) = Cx (fn (t,f) => (Tree.CJUMP(Tree.GE, unEx eq, unEx e2, t, f)))
-    fun eqExp (eq, e2) = Cx (fn (t,f) => (Tree.CJUMP(Tree.EQ, unEx eq, unEx e2, t, f)))
-    fun neqExp (eq, e2) = Cx (fn (t,f) => (Tree.CJUMP(Tree.NE, unEx eq, unEx e2, t, f)))
+    fun ltExp (e1, e2) = Cx (fn (t,f) => (Tree.CJUMP(Tree.LT, unEx e1, unEx e2, t, f)))
+    fun leExp (e1, e2) = Cx (fn (t,f) => (Tree.CJUMP(Tree.LE, unEx e1, unEx e2, t, f)))
+    fun gtExp (e1, e2) = Cx (fn (t,f) => (Tree.CJUMP(Tree.GT, unEx e1, unEx e2, t, f)))
+    fun geExp (e1, e2) = Cx (fn (t,f) => (Tree.CJUMP(Tree.GE, unEx e1, unEx e2, t, f)))
+    fun eqExp (e1, e2) = Cx (fn (t,f) => (Tree.CJUMP(Tree.EQ, unEx e1, unEx e2, t, f)))
+    fun neqExp (e1, e2) = Cx (fn (t,f) => (Tree.CJUMP(Tree.NE, unEx e1, unEx e2, t, f)))
+
+    fun stringComp (e1, e2) = Frame.externalCall ("strcmp", [unEx e1, unEx e2])
+
+    fun strLtExp (e1, e2) = Cx (fn (t,f) => (Tree.CJUMP(Tree.LT, stringComp(e1, e2), Tree.CONST 0, t, f)))
+    fun strLeExp (e1, e2) = Cx (fn (t,f) => (Tree.CJUMP(Tree.LE, stringComp(e1, e2), Tree.CONST 0, t, f)))
+    fun strGtExp (e1, e2) = Cx (fn (t,f) => (Tree.CJUMP(Tree.GT, stringComp(e1, e2), Tree.CONST 0, t, f)))
+    fun strGeExp (e1, e2) = Cx (fn (t,f) => (Tree.CJUMP(Tree.GE, stringComp(e1, e2), Tree.CONST 0, t, f)))
+    fun strEqExp (e1, e2) = Cx (fn (t,f) => (Tree.CJUMP(Tree.EQ, stringComp(e1, e2), Tree.CONST 0, t, f)))
+    fun strNeqExp (e1, e2) = Cx (fn (t,f) => (Tree.CJUMP(Tree.NE, stringComp(e1, e2), Tree.CONST 0, t, f)))
 
 end

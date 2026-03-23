@@ -10,4 +10,5 @@ sig
   val wordsize: int
   val exp : access -> Tree.exp -> Tree.exp
   val addPrologueEpliogue : frame * Tree.exp -> Tree.stm
+  val externalCall : string * Tree.exp list -> Tree.exp
 end

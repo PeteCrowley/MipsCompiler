@@ -1,11 +1,14 @@
 let
     var x := 1
     var y := 2
+    var s1 := "hello"
+    var s2 := "world"
     var z := y - x
     var w := y + x
     var a := x < y
-    var b := x = y
+    var b := s1 = s2
     var c := x <> y
+    var d := s1 >= s2
 in
-    a + b + c + z + w
+    a + c + z + w
 end

@@ -521,19 +521,7 @@ struct
           let
             val {exp = leftExp, ty = leftTy} = checkExp left
             val {exp = rightExp, ty = rightTy} = checkExp right
-            val totalExp = case oper of
-              Absyn.PlusOp => Translate.addExp (leftExp, rightExp)
-            | Absyn.MinusOp => Translate.subExp (leftExp, rightExp)
-            | Absyn.TimesOp => Translate.mulExp (leftExp, rightExp)
-            | Absyn.DivideOp => Translate.divExp (leftExp, rightExp)
-            | Absyn.LeOp => Translate.leExp (leftExp, rightExp)
-            | Absyn.LtOp => Translate.ltExp (leftExp, rightExp)
-            | Absyn.GeOp => Translate.geExp (leftExp, rightExp)
-            | Absyn.GtOp => Translate.gtExp (leftExp, rightExp)
-            | Absyn.EqOp => Translate.eqExp (leftExp, rightExp)
-            | Absyn.NeqOp => Translate.neqExp (leftExp, rightExp)
-          in
-            ( case oper of
+            val () = case oper of
                 (Absyn.PlusOp | Absyn.MinusOp | Absyn.TimesOp | Absyn.DivideOp) =>
                   ( checkInt ({exp = leftExp, ty = leftTy}, pos)
                   ; checkInt ({exp = rightExp, ty = rightTy}, pos)
@@ -542,8 +530,25 @@ struct
                   checkOrderable (checkExp left, checkExp right, pos)
               | (Absyn.EqOp | Absyn.NeqOp) =>
                   checkEqualable (checkExp left, checkExp right, pos)
-            ; {exp = totalExp, ty = Types.INT}
-            )
+            val totalExp = case (oper, leftTy) of
+              (Absyn.LeOp, Types.STRING) => Translate.strLeExp (leftExp, rightExp)
+              | (Absyn.LtOp, Types.STRING) => Translate.strLtExp (leftExp, rightExp)
+              | (Absyn.GeOp, Types.STRING) => Translate.strGeExp (leftExp, rightExp)
+              | (Absyn.GtOp, Types.STRING) => Translate.strGtExp (leftExp, rightExp)
+              | (Absyn.EqOp, Types.STRING) => Translate.strEqExp (leftExp, rightExp)
+              | (Absyn.NeqOp, Types.STRING) => Translate.strNeqExp (leftExp, rightExp)
+              | (Absyn.PlusOp, _) => Translate.addExp (leftExp, rightExp)
+              | (Absyn.MinusOp, _) => Translate.subExp (leftExp, rightExp)
+              | (Absyn.TimesOp, _) => Translate.mulExp (leftExp, rightExp)
+              | (Absyn.DivideOp, _) => Translate.divExp (leftExp, rightExp)
+              | (Absyn.LeOp, _) => Translate.leExp (leftExp, rightExp)
+              | (Absyn.LtOp, _) => Translate.ltExp (leftExp, rightExp)
+              | (Absyn.GeOp, _) => Translate.geExp (leftExp, rightExp)
+              | (Absyn.GtOp, _) => Translate.gtExp (leftExp, rightExp)
+              | (Absyn.EqOp, _) => Translate.eqExp (leftExp, rightExp)
+              | (Absyn.NeqOp, _) => Translate.neqExp (leftExp, rightExp)
+          in
+            {exp = totalExp, ty = Types.INT}
           end
             
         | checkExp (Absyn.RecordExp {fields, typ, pos}) =

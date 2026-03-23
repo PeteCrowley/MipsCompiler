@@ -92,6 +92,9 @@ struct
       Tree.SEQ(prologue(label, stackSpace, formalAccesses) , epilogue bodyExp)
     end
 
+  (* this may actually need to be more complicated idrk rn *)
+  fun externalCall (funcName, args) = Tree.CALL(Tree.NAME (Temp.namedlabel funcName), args)
+
   fun newFrame {name: Temp.label, formals: bool list} =
     let
       fun oneFormalToAccess (true, (offset, formals, numRegArgs)) =
@@ -108,4 +111,5 @@ struct
       allocLocal f true; (* for RA *)
       f
     end
+
 end
