@@ -110,7 +110,7 @@ struct
     fun simpleVar ((NODE(accParentLev, accFrame, accUq), frameAcc), NODE(parentLev, frame, uq)) = 
         let
             (* for debugging print access frame and variable frame *)
-          val () = print ("Access frame: " ^ Symbol.name (Frame.name accFrame) ^ ", variable frame: " ^ Symbol.name (Frame.name frame) ^ "\n")
+          (* val () = print ("Access frame: " ^ Symbol.name (Frame.name accFrame) ^ ", variable frame: " ^ Symbol.name (Frame.name frame) ^ "\n") *)
           val framePointerAddrExp = followStaticLinks (NODE(parentLev, frame, uq), Tree.TEMP Frame.FP, accUq)
         in
             (* printTree (Ex (Frame.exp frameAcc framePointerAddrExp)); *)
@@ -162,5 +162,17 @@ struct
         in
             Ex (Tree.CALL(Tree.NAME funcLabel, staticLink::argExps))
         end
+
+    fun addExp (e1, e2) = Ex (Tree.BINOP(Tree.PLUS, unEx e1, unEx e2))
+    fun subExp (e1, e2) = Ex (Tree.BINOP(Tree.MINUS, unEx e1, unEx e2))
+    fun mulExp (e1, e2) = Ex (Tree.BINOP(Tree.MUL, unEx e1, unEx e2))
+    fun divExp (e1, e2) = Ex (Tree.BINOP(Tree.DIV, unEx e1, unEx e2))
+
+    fun ltExp (eq, e2) = Cx (fn (t,f) => (Tree.CJUMP(Tree.LT, unEx eq, unEx e2, t, f)))
+    fun leExp (eq, e2) = Cx (fn (t,f) => (Tree.CJUMP(Tree.LE, unEx eq, unEx e2, t, f)))
+    fun gtExp (eq, e2) = Cx (fn (t,f) => (Tree.CJUMP(Tree.GT, unEx eq, unEx e2, t, f)))
+    fun geExp (eq, e2) = Cx (fn (t,f) => (Tree.CJUMP(Tree.GE, unEx eq, unEx e2, t, f)))
+    fun eqExp (eq, e2) = Cx (fn (t,f) => (Tree.CJUMP(Tree.EQ, unEx eq, unEx e2, t, f)))
+    fun neqExp (eq, e2) = Cx (fn (t,f) => (Tree.CJUMP(Tree.NE, unEx eq, unEx e2, t, f)))
 
 end

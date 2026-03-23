@@ -1,0 +1,11 @@
+let
+    var x := 1
+    var y := 2
+    var z := y - x
+    var w := y + x
+    var a := x < y
+    var b := x = y
+    var c := x <> y
+in
+    a + b + c + z + w
+end

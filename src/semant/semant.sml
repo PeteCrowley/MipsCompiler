@@ -518,17 +518,34 @@ struct
                  ))
 
         | checkExp (Absyn.OpExp {left, oper, right, pos}) =
+          let
+            val {exp = leftExp, ty = leftTy} = checkExp left
+            val {exp = rightExp, ty = rightTy} = checkExp right
+            val totalExp = case oper of
+              Absyn.PlusOp => Translate.addExp (leftExp, rightExp)
+            | Absyn.MinusOp => Translate.subExp (leftExp, rightExp)
+            | Absyn.TimesOp => Translate.mulExp (leftExp, rightExp)
+            | Absyn.DivideOp => Translate.divExp (leftExp, rightExp)
+            | Absyn.LeOp => Translate.leExp (leftExp, rightExp)
+            | Absyn.LtOp => Translate.ltExp (leftExp, rightExp)
+            | Absyn.GeOp => Translate.geExp (leftExp, rightExp)
+            | Absyn.GtOp => Translate.gtExp (leftExp, rightExp)
+            | Absyn.EqOp => Translate.eqExp (leftExp, rightExp)
+            | Absyn.NeqOp => Translate.neqExp (leftExp, rightExp)
+          in
             ( case oper of
                 (Absyn.PlusOp | Absyn.MinusOp | Absyn.TimesOp | Absyn.DivideOp) =>
-                  ( checkInt (checkExp left, pos)
-                  ; checkInt (checkExp right, pos)
+                  ( checkInt ({exp = leftExp, ty = leftTy}, pos)
+                  ; checkInt ({exp = rightExp, ty = rightTy}, pos)
                   )
               | (Absyn.LeOp | Absyn.LtOp | Absyn.GeOp | Absyn.GtOp) =>
                   checkOrderable (checkExp left, checkExp right, pos)
               | (Absyn.EqOp | Absyn.NeqOp) =>
                   checkEqualable (checkExp left, checkExp right, pos)
-            ; {exp = Translate.getDummyExp(), ty = Types.INT}
+            ; {exp = totalExp, ty = Types.INT}
             )
+          end
+            
         | checkExp (Absyn.RecordExp {fields, typ, pos}) =
             (case Symbol.look (tenv, typ) of
              (* condition 1: the type must be defined as a record type *)

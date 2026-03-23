@@ -16,5 +16,16 @@ sig
     val expList : exp list -> exp
     val functionDec : level * exp -> exp
     val functionCall : level * level * Temp.label * exp list -> exp
+    val addExp : exp * exp -> exp
+    val subExp : exp * exp -> exp
+    val mulExp : exp * exp -> exp
+    val divExp : exp * exp -> exp
+    val ltExp : exp * exp -> exp
+    val leExp : exp * exp -> exp
+    val gtExp : exp * exp -> exp
+    val geExp : exp * exp -> exp
+    val eqExp : exp * exp -> exp
+    val neqExp : exp * exp -> exp
+
 end
 
