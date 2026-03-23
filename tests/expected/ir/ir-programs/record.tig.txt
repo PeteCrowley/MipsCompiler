@@ -22,7 +22,7 @@ SEQ(
        BINOP(PLUS,
         TEMP t100,
         CONST 4)),
-      NAME L29))),
+      NAME L1))),
    TEMP t100)),
  SEQ(
   EXP(

@@ -163,12 +163,7 @@ struct
     let
       val locExp = unEx location
       val valExp = unEx value
-      val () =
-        case locExp of
-          Tree.MEM _ => ()
-        | Tree.TEMP _ => ()
-        | _ =>
-            raise Fail "Left-hand side of assignment must be a storage location"
+            
     in
       Nx (Tree.MOVE (locExp, valExp))
     end
@@ -176,12 +171,12 @@ struct
   fun expList exps =
     let
       fun seq [] =
-            Tree.EXP (Tree.CONST 0)
-        | seq [e] = unNx e
+            Tree.CONST 0
+        | seq [e] = unEx e
         | seq (e :: es) =
-            Tree.SEQ (unNx e, seq es)
+            Tree.ESEQ (unNx e, seq es)
     in
-      Nx (seq exps)
+      Ex (seq exps)
     end
 
   fun functionDec (level, body) =

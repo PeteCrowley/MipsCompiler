@@ -7,5 +7,5 @@ SEQ(
   CONST 5),
  EXP(
   CALL(
-   NAME L64,
+   NAME L1,
     TEMP FP)))

@@ -9,11 +9,11 @@ SEQ(
   SEQ(
    MOVE(
     TEMP t102,
-    NAME L40),
+    NAME L1),
    SEQ(
     MOVE(
      TEMP t103,
-     NAME L41),
+     NAME L2),
     SEQ(
      MOVE(
       TEMP t104,
@@ -38,14 +38,14 @@ SEQ(
            CJUMP(LT,
             TEMP t100,
             TEMP t101,
-            L42,L43),
+            L3,L4),
            SEQ(
-            LABEL L43,
+            LABEL L4,
             SEQ(
              MOVE(
               TEMP t107,
               CONST 0),
-             LABEL L42)))),
+             LABEL L3)))),
          TEMP t107)),
        SEQ(
         MOVE(
@@ -62,14 +62,14 @@ SEQ(
                TEMP t102,
                TEMP t103),
              CONST 0,
-             L44,L45),
+             L5,L6),
             SEQ(
-             LABEL L45,
+             LABEL L6,
              SEQ(
               MOVE(
                TEMP t109,
                CONST 0),
-              LABEL L44)))),
+              LABEL L5)))),
           TEMP t109)),
         SEQ(
          MOVE(
@@ -83,14 +83,14 @@ SEQ(
              CJUMP(NE,
               TEMP t100,
               TEMP t101,
-              L46,L47),
+              L7,L8),
              SEQ(
-              LABEL L47,
+              LABEL L8,
               SEQ(
                MOVE(
                 TEMP t111,
                 CONST 0),
-               LABEL L46)))),
+               LABEL L7)))),
            TEMP t111)),
          SEQ(
           MOVE(
@@ -107,14 +107,14 @@ SEQ(
                  TEMP t102,
                  TEMP t103),
                CONST 0,
-               L48,L49),
+               L9,L10),
               SEQ(
-               LABEL L49,
+               LABEL L10,
                SEQ(
                 MOVE(
                  TEMP t113,
                  CONST 0),
-                LABEL L48)))),
+                LABEL L9)))),
             TEMP t113)),
           SEQ(
            MOVE(
@@ -128,17 +128,17 @@ SEQ(
                CJUMP(LT,
                 CALL(
                  NAME strcmp,
-                  NAME L50,
-                  NAME L51),
+                  NAME L11,
+                  NAME L12),
                 CONST 0,
-                L54,L55),
+                L15,L16),
                SEQ(
-                LABEL L55,
+                LABEL L16,
                 SEQ(
                  MOVE(
                   TEMP t115,
                   CONST 0),
-                 LABEL L54)))),
+                 LABEL L15)))),
              TEMP t115)),
            EXP(
             BINOP(PLUS,

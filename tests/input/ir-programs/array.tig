@@ -2,5 +2,5 @@ let
     type arrType = array of int
     var myArr := arrType [3] of 1
 in
-    myArr[2]
+    myArr[2] := 2
 end

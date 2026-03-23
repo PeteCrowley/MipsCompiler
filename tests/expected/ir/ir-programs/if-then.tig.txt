@@ -6,23 +6,23 @@ SEQ(
     CJUMP(GT,
      CONST 4,
      CONST 5,
-     L13,L14),
+     L1,L2),
     SEQ(
-     LABEL L13,
+     LABEL L1,
      SEQ(
       MOVE(
        TEMP t100,
        CONST 10),
       SEQ(
        JUMP(
-        NAME L15),
+        NAME L3),
        SEQ(
-        LABEL L14,
+        LABEL L2,
         SEQ(
          MOVE(
           TEMP t100,
           CONST 1),
-         LABEL L15)))))),
+         LABEL L3)))))),
    TEMP t100)),
  SEQ(
   MOVE(
@@ -32,9 +32,9 @@ SEQ(
      CJUMP(EQ,
       CONST 1,
       CONST 1,
-      L16,L17),
+      L4,L5),
      SEQ(
-      LABEL L16,
+      LABEL L4,
       SEQ(
        MOVE(
         TEMP t102,
@@ -44,9 +44,9 @@ SEQ(
          CONST 0)),
        SEQ(
         JUMP(
-         NAME L18),
+         NAME L6),
         SEQ(
-         LABEL L17,
+         LABEL L5,
          SEQ(
           MOVE(
            TEMP t102,
@@ -54,7 +54,7 @@ SEQ(
             EXP(
              CONST 0),
             CONST 0)),
-          LABEL L18)))))),
+          LABEL L6)))))),
     TEMP t102)),
   EXP(
    ESEQ(
@@ -62,9 +62,9 @@ SEQ(
      CJUMP(LT,
       TEMP t101,
       CONST 5,
-      L19,L20),
+      L7,L8),
      SEQ(
-      LABEL L19,
+      LABEL L7,
       SEQ(
        MOVE(
         TEMP t104,
@@ -74,9 +74,9 @@ SEQ(
          CONST 0)),
        SEQ(
         JUMP(
-         NAME L21),
+         NAME L9),
         SEQ(
-         LABEL L20,
+         LABEL L8,
          SEQ(
           MOVE(
            TEMP t104,
@@ -84,5 +84,5 @@ SEQ(
             EXP(
              CONST 0),
             CONST 0)),
-          LABEL L21)))))),
+          LABEL L9)))))),
     TEMP t104))))

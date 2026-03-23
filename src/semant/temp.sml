@@ -10,7 +10,7 @@ struct
 
     fun makestring t = "t" ^ Int.toString t
 
-    fun reset() = temps := 100
+    
 
   type label = Symbol.symbol
 
@@ -20,6 +20,7 @@ local structure F = Format
  in
     fun newlabel() = Symbol.symbol(F.format "L%d" [F.INT(postinc labs)])
     val namedlabel = Symbol.symbol
+    fun reset() = (temps := 100; labs := 100)
 end
 
 
