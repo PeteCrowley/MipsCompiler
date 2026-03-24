@@ -915,7 +915,7 @@ struct
       val mainLevel =
         Translate.newLevel
           {parent = Translate.outermost, name = Temp.newlabel (), formals = []}
-      val () = FindEscape.findEscape exp
+      val () = (FindEscape.printEscapes := false; FindEscape.findEscape exp)
     in
       transExp (Env.base_venv, Env.base_tenv, mainLevel, NONE) exp
     end
