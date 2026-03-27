@@ -1,0 +1,9 @@
+let
+    var x := 5
+    function f(): int = (
+        x
+        
+    )
+in
+    f ()
+end

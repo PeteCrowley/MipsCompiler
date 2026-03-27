@@ -3,6 +3,7 @@ sig
   type level
   type access
   type exp
+  type frag
   structure Frame: FRAME
 
   val outermost: level
@@ -44,5 +45,6 @@ sig
   val arrayAcessExp: exp * exp -> exp
   val recordExp: exp list -> exp
   val recordAccessExp: exp * int -> exp
+  val resetFrags: unit -> unit
 
 end

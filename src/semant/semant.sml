@@ -5,7 +5,7 @@ sig
   type expty
   type venv
   type tenv
-  val transProg: Absyn.exp -> expty
+  val transProg: Absyn.exp -> Translate.frag list
   val printIrTree: Absyn.exp -> unit
 
   val transExp: venv * tenv * Translate.level * Temp.label option
@@ -910,7 +910,7 @@ struct
       checkExp
     end
 
-  fun transProg exp =
+  fun transProgOld exp =
     let
       val mainLevel =
         Translate.newLevel
@@ -921,7 +921,22 @@ struct
     end
 
   fun printIrTree exp =
-    let val {exp = irExp, ty = _} = transProg exp
+    let val {exp = irExp, ty = _} = transProgOld exp
     in Translate.printTree irExp
     end
+
+  fun transProg exp =
+    let
+      val mainLevel =
+        Translate.newLevel
+          {parent = Translate.outermost, name = Temp.namedlabel "tigermain", formals = []}
+      val () = (FindEscape.printEscapes := false; FindEscape.findEscape exp)
+      val {exp = mainExp, ty = _} = transExp (Env.base_venv, Env.base_tenv, mainLevel, NONE) exp
+
+      val () = Translate.functionDec (mainLevel, mainExp)
+
+    in
+      Translate.getResult ()
+    end
+
 end

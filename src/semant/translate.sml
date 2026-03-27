@@ -13,8 +13,11 @@ struct
 
   type level = levelTree
   type access = level * Frame.access
+  type frag = Frame.frag
 
   val frags: Frame.frag list ref = ref []
+
+  fun resetFrags () = frags := []
 
   val outermost = NODE
     (EMPTY, Frame.newFrame {name = Temp.newlabel (), formals = []}, ref ())

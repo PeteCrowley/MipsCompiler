@@ -6,6 +6,7 @@ sig
   val base_tenv: ty Symbol.table (*predefined types*)
   val base_venv: enventry Symbol.table (*predefined functions*)
   val getFunEntry: Translate.level * ty * bool list -> enventry
+  val getNamedFunEntry: Translate.level * ty * bool list * string -> enventry
 end =
 struct
   type ty = Types.ty
@@ -15,6 +16,15 @@ struct
   fun getFunEntry (parentLevel, ty, formals) =
     let
       val funLabel = Temp.newlabel()
+    in
+      FunEntry {level = Translate.newLevel {
+        parent = parentLevel, name = funLabel, formals = formals
+    }, label = funLabel, ty = ty}
+    end
+
+  fun getNamedFunEntry (parentLevel, ty, formals, name) =
+    let
+      val funLabel = Temp.namedlabel name
     in
       FunEntry {level = Translate.newLevel {
         parent = parentLevel, name = funLabel, formals = formals
@@ -35,20 +45,20 @@ struct
     let
       val table = Symbol.empty
       val pairs =
-        [ (Symbol.symbol "print", getFunEntry (Translate.outermost, Types.ARROW ([Types.STRING], Types.UNIT), [false]))
-        , (Symbol.symbol "flush", getFunEntry (Translate.outermost, Types.ARROW ([], Types.UNIT), []))
-        , (Symbol.symbol "getchar", getFunEntry (Translate.outermost, Types.ARROW ([], Types.STRING), []))
-        , (Symbol.symbol "ord", getFunEntry (Translate.outermost, Types.ARROW ([Types.STRING], Types.INT), [false]))
-        , (Symbol.symbol "chr", getFunEntry (Translate.outermost, Types.ARROW ([Types.INT], Types.STRING), [false]))
-        , (Symbol.symbol "size", getFunEntry (Translate.outermost, Types.ARROW ([Types.STRING], Types.INT), [false]))
+        [ (Symbol.symbol "print", getNamedFunEntry (Translate.outermost, Types.ARROW ([Types.STRING], Types.UNIT), [false], "print"))
+        , (Symbol.symbol "flush", getNamedFunEntry (Translate.outermost, Types.ARROW ([], Types.UNIT), [], "flush"))
+        , (Symbol.symbol "getchar", getNamedFunEntry (Translate.outermost, Types.ARROW ([], Types.STRING), [], "getchar"))
+        , (Symbol.symbol "ord", getNamedFunEntry (Translate.outermost, Types.ARROW ([Types.STRING], Types.INT), [false], "ord"))
+        , (Symbol.symbol "chr", getNamedFunEntry (Translate.outermost, Types.ARROW ([Types.INT], Types.STRING), [false], "chr"))
+        , (Symbol.symbol "size", getNamedFunEntry (Translate.outermost, Types.ARROW ([Types.STRING], Types.INT), [false], "size"))
         , ( Symbol.symbol "substring"
-          , getFunEntry (Translate.outermost, Types.ARROW ([Types.STRING, Types.INT, Types.INT], Types.STRING), [false, false, false])
+          , getNamedFunEntry (Translate.outermost, Types.ARROW ([Types.STRING, Types.INT, Types.INT], Types.STRING), [false, false, false], "substring")
           )
         , ( Symbol.symbol "concat"
-          , getFunEntry (Translate.outermost, Types.ARROW ([Types.STRING, Types.STRING], Types.STRING), [false, false])
+          , getNamedFunEntry (Translate.outermost, Types.ARROW ([Types.STRING, Types.STRING], Types.STRING), [false, false], "concat")
           )
-        , (Symbol.symbol "not", getFunEntry (Translate.outermost, Types.ARROW ([Types.INT], Types.INT), [false]))
-        , (Symbol.symbol "exit", getFunEntry (Translate.outermost, Types.ARROW ([Types.INT], Types.UNIT), [false]))
+        , (Symbol.symbol "not", getNamedFunEntry (Translate.outermost, Types.ARROW ([Types.INT], Types.INT), [false], "not"))
+        , (Symbol.symbol "exit", getNamedFunEntry (Translate.outermost, Types.ARROW ([Types.INT], Types.UNIT), [false], "exit"))
         ]
     in
       foldl addPairToTable table pairs

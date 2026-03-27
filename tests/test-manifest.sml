@@ -64,9 +64,40 @@ struct
 
   fun ir (input, output) =
     let
+      val () = Translate.resetFrags()
       val () = Temp.reset()
       val absyn = Parse.parse input
       fun do_it () = Semant.printIrTree absyn
+    in
+      IOUtil.withOutputFile (output, do_it) ()
+    end
+    handle Fail msg => print ("Program raised Fail: " ^ msg)
+
+  structure Frame = MipsFrame
+
+  fun instruction_selection(input, output) = 
+    let
+      fun emitproc out (Frame.PROC {body, frame}) =
+        let
+            val _ = print ("emit " ^ (Symbol.name (Frame.name frame)) ^ "\n")
+            (*         val _ = Printtree.printtree(out,body); *)
+            val stms = Canon.linearize body
+            (*         val _ = app (fn s => Printtree.printtree(out,s)) stms; *)
+            val stms' = Canon.traceSchedule (Canon.basicBlocks stms)
+            val instrs = List.concat (map (MipsGen.codegen frame) stms')
+            val format0 = Assem.format (Temp.makestring)
+          in
+            app (fn i => TextIO.output (out, format0 i)) instrs
+          end
+      | emitproc out (Frame.STRING (lab, s)) =
+          TextIO.output (out, Frame.string (lab, s))
+
+      val () = Translate.resetFrags()
+      val () = Temp.reset()
+      val absyn = Parse.parse input
+      val frags = Semant.transProg absyn
+
+      fun do_it () = app (emitproc (TextIO.stdOut)) frags
     in
       IOUtil.withOutputFile (output, do_it) ()
     end
@@ -91,5 +122,6 @@ struct
       }
     , {test_name = "escape", test_dirs = ["escape-programs"], test_fn = escape}
     , {test_name = "ir", test_dirs = ["ir-programs", "appel-programs"], test_fn = ir}
+    , {test_name = "selection", test_dirs = ["selection-programs", "appel-programs"], test_fn = instruction_selection}
     ]
 end

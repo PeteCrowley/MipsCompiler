@@ -171,6 +171,9 @@ struct
   fun externalCall (funcName, args) =
     Tree.CALL (Tree.NAME (Temp.namedlabel funcName), args)
 
+  (* To-do check this in detail later *)
+  fun string (lab, s) = Symbol.name lab ^ ": .asciiz " ^ "\"" ^ s ^ "\"\n"
+
   fun newFrame {name: Temp.label, formals: bool list} =
     let
       fun oneFormalToAccess (true, (offset, formals, numRegArgs)) =

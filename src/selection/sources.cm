@@ -10,4 +10,5 @@ codegen.sig
 flowgraph.sml
 graph.sig
 graph.sml
+codegen.sig
 mipsgen.sml
