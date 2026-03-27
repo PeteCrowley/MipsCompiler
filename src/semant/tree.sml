@@ -44,9 +44,8 @@ sig
   | UGT
   | UGE
 
-(* val notRel : relop -> relop
-val commute: relop -> relop *)
-(* I suppose we can implement these below later if we think we need them *)
+val notRel : relop -> relop
+(* val commute: relop -> relop *)
 end
 
 structure Tree: TREE =
@@ -94,5 +93,19 @@ struct
   | ULE
   | UGT
   | UGE
+
+  fun notRel EQ = NE
+    | notRel NE = EQ
+    | notRel LT = GE
+    | notRel GT = LE
+    | notRel LE = GT
+    | notRel GE = LT
+    | notRel ULT = UGE
+    | notRel ULE = UGT
+    | notRel UGT = ULE
+    | notRel UGE = ULT
+
+  (* fun commute EQ = EQ
+    | commute NE = NE *)
 
 end
