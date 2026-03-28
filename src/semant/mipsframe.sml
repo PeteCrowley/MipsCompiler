@@ -1,12 +1,27 @@
-structure MipsFrame: FRAME =
+structure MipsFrame:
+sig
+  include FRAME
+  val SP: Temp.temp
+  val RA: Temp.temp
+
+  val specialregs: Temp.temp list
+  val argregs: Temp.temp list
+  val argRegisterCount: int
+  val callersaves: Temp.temp list
+  val calleesaves: Temp.temp list
+end =
 struct
   datatype access = InFrame of int | InReg of Temp.temp
   type frame =
     { name: Temp.label
     , formals: access list
     , numLocalsInFrame: int ref
+    (* If this function calls a function that requires 5+ args, MIPS requires
+     * the stack be used. This gives the stack space required for arg passing *)
+    , numWordsForStackArgPassing: int ref
     , numRegArgs: int
     }
+  type register = string
 
   datatype frag =
     PROC of {body: Tree.stm, frame: frame}
@@ -19,6 +34,20 @@ struct
   val RV = 2
   val a0 = 4
 
+  local
+    fun range (a, b) =
+      List.tabulate (b - a + 1, fn i => a + i)
+  in
+    val specialregs =
+      [0 (*r0*), 1 (*at*), 26 (*k0*), 27 (*k1*), 28 (*gp*), SP, FP, RA]
+    val argregs = range (4, 7)
+    val argRegisterCount = List.length argregs
+    (* t registers *)
+    val callersaves = range (8, 15) @ [24, 25]
+    (* s registers *)
+    val calleesaves = range (16, 23)
+  end
+
   fun name (frame: frame) = #name frame
 
   fun access_escapes (access: access) =
@@ -27,8 +56,6 @@ struct
     | InReg _ => true
 
   fun formals (frame: frame) = (#formals frame)
-
-  val argRegisterCount = 4
 
   fun allocLocal (frame: frame) =
     let
@@ -46,6 +73,16 @@ struct
             end
     in
       allocLocalForFrame
+    end
+
+  fun numWordsForStackArgPassing (frame: frame) =
+    !(#numWordsForStackArgPassing frame)
+  fun allocSpaceForStackArgs (frame: frame, numArgs) =
+    let
+      val numStackArgs = numArgs - argRegisterCount
+      val frameRef = (#numWordsForStackArgPassing frame)
+    in
+      if numStackArgs > !frameRef then frameRef := numStackArgs else ()
     end
 
   fun exp (InFrame k) framePtrAddr =
@@ -150,6 +187,7 @@ struct
         { name = name
         , formals = accesses
         , numLocalsInFrame = ref 0
+        , numWordsForStackArgPassing = ref 0
         , numRegArgs = numRegArgs
         }
     in
@@ -158,4 +196,12 @@ struct
       f
     end
 
+  fun framesize (frame: frame) =
+    let
+      val sizeForLocals = !(#numLocalsInFrame frame) * wordsize
+      val sizeForRegs = 2 * wordsize (* TODO: is this correct? *)
+      val sizeForStack = !(#numWordsForStackArgPassing frame)
+    in
+      sizeForLocals + sizeForRegs + sizeForStack
+    end
 end

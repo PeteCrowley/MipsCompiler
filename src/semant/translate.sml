@@ -163,15 +163,14 @@ struct
     let
       val locExp = unEx location
       val valExp = unEx value
-            
+
     in
       Nx (Tree.MOVE (locExp, valExp))
     end
 
   fun expList exps =
     let
-      fun seq [] =
-            Tree.CONST 0
+      fun seq [] = Tree.CONST 0
         | seq [e] = unEx e
         | seq (e :: es) =
             Tree.ESEQ (unNx e, seq es)
@@ -194,6 +193,11 @@ struct
 
   fun functionCall (level, funcLevel, funcLabel, args) =
     let
+      val (_, callerFrame, _) =
+        case level of
+          EMPTY => raise Fail "current level cannot be EMPTY"
+        | NODE v => v
+      val _ = Frame.allocSpaceForStackArgs (callerFrame, List.length args)
       val (calleeGrandPar, parentFrame, parentUq) =
         case funcLevel of
           EMPTY => raise Fail "Function level cannot be outermost level"

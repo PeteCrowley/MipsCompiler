@@ -6,6 +6,8 @@ $/smlnj-lib.cm
 ../semant/sources.cm
 assem.sml
 canon.sml
+codegen.sig
 flowgraph.sml
 graph.sig
 graph.sml
+mipsgen.sml

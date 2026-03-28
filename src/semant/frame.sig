@@ -2,16 +2,25 @@ signature FRAME =
 sig
   type frame
   type access
+  type register
   datatype frag =
     PROC of {body: Tree.stm, frame: frame}
   | STRING of Temp.label * string
+
   val newFrame: {name: Temp.label, formals: bool list} -> frame
+
   val name: frame -> Temp.label
   val formals: frame -> access list
   val allocLocal: frame -> bool -> access
+
   val FP: Temp.temp (* frame pointer register *)
   val RV: Temp.temp (* return value register *)
   val wordsize: int
+
+  val framesize: frame -> int
+
+  val allocSpaceForStackArgs: frame * int -> unit
+
   val exp: access -> Tree.exp -> Tree.exp
   val addPrologueEpliogue: frame * Tree.exp -> Tree.stm
   val externalCall: string * Tree.exp list -> Tree.exp

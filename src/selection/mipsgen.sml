@@ -1,8 +1,9 @@
 structure MipsGen: CODEGEN =
 struct
   structure Frame = MipsFrame
-  (* TODO: add s registers, sp, ra *)
-  val calldefs = [MipsFrame.RV, MipsFrame.FP]
+  (* All of the registers potentially overwritten by a function call *)
+  val calldefs =
+    MipsFrame.argregs @ MipsFrame.callersaves @ [MipsFrame.RV, MipsFrame.RA]
   fun codegen frame stm =
     let
       val ilist: Assem.instr list ref = ref []
@@ -110,8 +111,7 @@ struct
                 , jump = NONE
                 })
             in
-              (* TODO: should refer to v0 *)
-              Temp.newtemp ()
+              MipsFrame.RV
             end
 
         (* Load: MEM[s0 + i] *)
@@ -196,7 +196,41 @@ struct
             end
 
       and munchArgs (idx, []) = []
-        | munchArgs (idx, arg :: args) = []
+        | munchArgs (idx, arg :: args) =
+            let
+              val srctemp = munchExp arg
+              fun moveToArgReg (idx) =
+                let
+                  val argtemp = List.nth (MipsFrame.argregs, idx)
+                in
+                  emit
+                    (Assem.MOVE
+                       { assem = "    move 'd0, 's0"
+                       , src = srctemp
+                       , dst = argtemp
+                       })
+                end
+              fun moveToStack (idx) =
+                let
+                  val argNumInStack = idx - MipsFrame.argRegisterCount
+                  val offset = argNumInStack * MipsFrame.wordsize
+                  val spName = "$sp" (* TODO *)
+                in
+                  emit (Assem.OPER
+                    { assem =
+                        "    sw 's0, " ^ Int.toString offset ^ "(" ^ spName
+                        ^ ")\n"
+                    , src = [srctemp]
+                    , dst = []
+                    , jump = NONE
+                    })
+                end
+              val munch =
+                if idx > MipsFrame.argRegisterCount then moveToArgReg idx
+                else moveToStack idx
+            in
+              srctemp :: munchArgs (idx + 1, args)
+            end
 
 
       (* Actually munch the provided statement *)
