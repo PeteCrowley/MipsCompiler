@@ -96,8 +96,10 @@ struct
       val () = Temp.reset()
       val absyn = Parse.parse input
       val frags = Semant.transProg absyn
+      val stringFrags = List.filter (fn f => case f of Frame.STRING _ => true | _ => false) frags
+      val funcFrags = List.filter (fn f => case f of Frame.PROC _ => true | _ => false) frags
 
-      fun do_it () = app (emitproc (TextIO.stdOut)) frags
+      fun do_it () = (app (emitproc (TextIO.stdOut)) stringFrags; app (emitproc (TextIO.stdOut)) funcFrags)
     in
       IOUtil.withOutputFile (output, do_it) ()
     end

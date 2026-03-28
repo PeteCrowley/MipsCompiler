@@ -56,7 +56,7 @@ struct
         | munchStm (Tree.MOVE (Tree.TEMP t, e1)) =
             emit
               (Assem.MOVE
-                 {assem = "    move 'd0, 's0", dst = t, src = munchExp e1})
+                 {assem = "    move 'd0, 's0\n", dst = t, src = munchExp e1})
         (* NOTE: any other move statement is disallowed *)
         | munchStm (Tree.MOVE _) =
             raise Fail "Disallowed left side of MOVE node in IR"
@@ -96,7 +96,7 @@ struct
         | munchExp (Tree.CALL (Tree.NAME name, args)) =
             result (fn r =>
               emit (Assem.OPER
-                { assem = "jal " ^ Symbol.name name ^ "\n"
+                { assem = "    jal " ^ Symbol.name name ^ "\n"
                 , src = munchArgs (0, args)
                 , dst = calldefs
                 , jump = NONE
@@ -105,7 +105,7 @@ struct
         | munchExp (Tree.CALL (f, args)) =
             let
               val insns = emit (Assem.OPER
-                { assem = "jalr 's0\n"
+                { assem = "    jalr 's0\n"
                 , src = munchExp f :: munchArgs (0, args)
                 , dst = calldefs
                 , jump = NONE
