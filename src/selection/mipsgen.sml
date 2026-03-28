@@ -16,6 +16,17 @@ struct
         in gen t; t
         end
 
+      fun relopToBranch Tree.EQ = "beq"
+        | relopToBranch Tree.NE = "bne"
+        | relopToBranch Tree.LT = "blt"
+        | relopToBranch Tree.LE = "ble"
+        | relopToBranch Tree.GT = "bgt"
+        | relopToBranch Tree.GE = "bge"
+        | relopToBranch Tree.ULT = "bltu"
+        | relopToBranch Tree.ULE = "bleu"
+        | relopToBranch Tree.UGT = "bgtu"
+        | relopToBranch Tree.UGE = "bgeu"
+
       fun munchStm (Tree.SEQ (a, b)) =
             (munchStm a; munchStm b)
         (* Store: MEM[i] = s0 *)
@@ -65,8 +76,27 @@ struct
             emit (Assem.LABEL {assem = Symbol.name l ^ ":\n", lab = l})
 
         (* TODO: jumps *)
-        | munchStm (Tree.JUMP _) = ()
-        | munchStm (Tree.CJUMP _) = ()
+        | munchStm (Tree.JUMP (Tree.NAME lab, _)) = 
+            emit (Assem.OPER
+              { assem = "    j " ^ Symbol.name lab ^ "\n"
+              , src = []
+              , dst = []
+              , jump = SOME [lab]
+              })
+        | munchStm (Tree.JUMP (Tree.TEMP reg, _)) = emit (Assem.OPER
+              { assem = "    jr 's0\n"
+              , src = [munchExp (Tree.TEMP reg)]
+              , dst = []
+              , jump = NONE
+              })
+        | munchStm (Tree.JUMP _) = raise Fail "Unsupported jump statement in IR"
+        (* For CJUMPS we can assume the CJUMP is followed immediately by it's false label *)
+        | munchStm (Tree.CJUMP (relop, exp1, exp2, tlab, flab)) = emit (Assem.OPER{
+              assem = "    " ^ relopToBranch relop ^ "'s0, 's1, " ^ Symbol.name tlab ^ "\n"
+              , src = [munchExp exp1, munchExp exp2]
+              , dst = []
+              , jump = SOME [tlab, flab]
+            })
 
         | munchStm (Tree.EXP e) =
             (munchExp e; ())
