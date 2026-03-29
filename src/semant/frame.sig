@@ -25,4 +25,5 @@ sig
   val addPrologueEpliogue: frame * Tree.exp -> Tree.stm
   val externalCall: string * Tree.exp list -> Tree.exp
   val string : Temp.label * string -> string
+  val slOffset: int
 end

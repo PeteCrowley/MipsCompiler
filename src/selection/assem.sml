@@ -13,18 +13,25 @@ structure Assem = struct
 			    dst: temp,
 			    src: temp}
 
+  fun getRegName i = MipsFrame.getRegName i
+
   fun format saytemp =
     let 
 	fun speak(assem,dst,src,jump) =
-	    let val saylab = Symbol.name    
+	    let
+		val saylab = Symbol.name
+		fun sayRegIfExists t =
+		    case getRegName t of
+			SOME reg => reg
+		      | NONE => saytemp t
 		fun f(#"`":: #"s":: i::rest) = 
-		    (explode(saytemp(List.nth(src,ord i - ord #"0"))) @ f rest)
+		    (explode(sayRegIfExists(List.nth(src,ord i - ord #"0"))) @ f rest)
 		  | f( #"`":: #"d":: i:: rest) = 
-		    (explode(saytemp(List.nth(dst,ord i - ord #"0"))) @ f rest)
+		    (explode(sayRegIfExists(List.nth(dst,ord i - ord #"0"))) @ f rest)
 		  | f( #"`":: #"j":: i:: rest) = 
 		    (explode(saylab(List.nth(jump,ord i - ord #"0"))) @ f rest)
 		  | f( #"`":: #"`":: rest) = #"`" :: f rest
-		  | f( #"`":: _ :: rest) = ErrorMsg.impossible "bad Assem format"
+		  | f( #"`":: _ :: _) = ErrorMsg.impossible "bad Assem format"
 		  | f(c :: rest) = (c :: f rest)
 		  | f nil = nil
 	    in implode(f(explode assem))

@@ -41,7 +41,7 @@ struct
         | munchStm
             (Tree.MOVE (Tree.MEM (Tree.BINOP (Tree.PLUS, e1, Tree.CONST i)), e2)) =
             emit (Assem.OPER
-              { assem = "    sw `s0, " ^ Int.toString i ^ "(s1)\n"
+              { assem = "    sw `s1, " ^ Int.toString i ^ "(`s0)\n"
               , src = [munchExp e1, munchExp e2]
               , dst = []
               , jump = NONE
@@ -50,7 +50,7 @@ struct
         | munchStm
             (Tree.MOVE (Tree.MEM (Tree.BINOP (Tree.PLUS, Tree.CONST i, e1)), e2)) =
             emit (Assem.OPER
-              { assem = "    sw `s0, " ^ Int.toString i ^ "(s1)\n"
+              { assem = "    sw `s1, " ^ Int.toString i ^ "(`s0)\n"
               , src = [munchExp e1, munchExp e2]
               , dst = []
               , jump = NONE
@@ -58,7 +58,7 @@ struct
         (* Store: MEM[s1] = s0 *)
         | munchStm (Tree.MOVE (Tree.MEM e1, e2)) =
             emit (Assem.OPER
-              { assem = "    sw `s0, 0(s1)\n"
+              { assem = "    sw `s1, 0(`s0)\n"
               , src = [munchExp e1, munchExp e2]
               , dst = []
               , jump = NONE
@@ -124,13 +124,12 @@ struct
 
         (* Call a static function *)
         | munchExp (Tree.CALL (Tree.NAME name, args)) =
-            result (fn r =>
-              emit (Assem.OPER
+            (emit (Assem.OPER
                 { assem = "    jal " ^ Symbol.name name ^ "\n"
                 , src = munchArgs (0, args)
                 , dst = calldefs
                 , jump = NONE
-                }))
+                }); MipsFrame.RV)
         (* Call a function from a register *)
         | munchExp (Tree.CALL (f, args)) =
             let
@@ -235,7 +234,7 @@ struct
                 in
                   emit
                     (Assem.MOVE
-                       { assem = "    move 'd0, 's0"
+                       { assem = "    move `d0, `s0\n"
                        , src = srctemp
                        , dst = argtemp
                        })
@@ -244,19 +243,18 @@ struct
                 let
                   val argNumInStack = idx - MipsFrame.argRegisterCount
                   val offset = argNumInStack * MipsFrame.wordsize
-                  val spName = "$sp" (* TODO *)
+                  val sp = MipsFrame.SP
                 in
                   emit (Assem.OPER
                     { assem =
-                        "    sw 's0, " ^ Int.toString offset ^ "(" ^ spName
-                        ^ ")\n"
-                    , src = [srctemp]
+                        "    sw `s0, " ^ Int.toString offset ^ "(`s1)\n"
+                    , src = [srctemp, sp]
                     , dst = []
                     , jump = NONE
                     })
                 end
               val munch =
-                if idx > MipsFrame.argRegisterCount then moveToArgReg idx
+                if idx < MipsFrame.argRegisterCount then moveToArgReg idx
                 else moveToStack idx
             in
               srctemp :: munchArgs (idx + 1, args)

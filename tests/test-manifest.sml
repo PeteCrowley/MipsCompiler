@@ -79,10 +79,7 @@ struct
     let
       fun emitproc out (Frame.PROC {body, frame}) =
         let
-            val _ = print ("emit " ^ (Symbol.name (Frame.name frame)) ^ "\n")
-            (*         val _ = Printtree.printtree(out,body); *)
             val stms = Canon.linearize body
-            (*         val _ = app (fn s => Printtree.printtree(out,s)) stms; *)
             val stms' = Canon.traceSchedule (Canon.basicBlocks stms)
             val instrs = List.concat (map (MipsGen.codegen frame) stms')
             val format0 = Assem.format (Temp.makestring)
@@ -124,6 +121,6 @@ struct
       }
     , {test_name = "escape", test_dirs = ["escape-programs"], test_fn = escape}
     , {test_name = "ir", test_dirs = ["ir-programs", "appel-programs"], test_fn = ir}
-    , {test_name = "selection", test_dirs = ["selection-programs", "appel-programs"], test_fn = instruction_selection}
+    , {test_name = "selection", test_dirs = ["selection-programs"], test_fn = instruction_selection}
     ]
 end

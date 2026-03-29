@@ -9,6 +9,7 @@ sig
   val argRegisterCount: int
   val callersaves: Temp.temp list
   val calleesaves: Temp.temp list
+  val getRegName: int -> string option
 end =
 struct
   datatype access = InFrame of int | InReg of Temp.temp
@@ -19,7 +20,6 @@ struct
     (* If this function calls a function that requires 5+ args, MIPS requires
      * the stack be used. This gives the stack space required for arg passing *)
     , numWordsForStackArgPassing: int ref
-    , numRegArgs: int
     }
   type register = string
 
@@ -33,6 +33,9 @@ struct
   val wordsize = 4
   val RV = 2
   val a0 = 4
+  val fpOffset = ~wordsize
+  val raOffset = ~2 * wordsize
+  val slOffset = ~3 * wordsize
 
   local
     fun range (a, b) =
@@ -47,6 +50,40 @@ struct
     (* s registers *)
     val calleesaves = range (16, 23)
   end
+
+  fun getRegName(0) = SOME "$zero"
+    | getRegName(1) = SOME "$at"
+    | getRegName(2) = SOME "$v0"
+    | getRegName(3) = SOME "$v1"
+    | getRegName(4) = SOME "$a0"
+    | getRegName(5) = SOME "$a1"
+    | getRegName(6) = SOME "$a2"
+    | getRegName(7) = SOME "$a3"
+    | getRegName(8) = SOME "$t0"
+    | getRegName(9) = SOME "$t1"
+    | getRegName(10) =SOME "$t2"
+    | getRegName(11) =SOME "$t3"
+    | getRegName(12) =SOME "$t4"
+    | getRegName(13) =SOME "$t5"
+    | getRegName(14) =SOME "$t6"
+    | getRegName(15) =SOME "$t7"
+    | getRegName(16) =SOME "$s0"
+    | getRegName(17) =SOME "$s1"
+    | getRegName(18) = SOME "$s2"
+    | getRegName(19) = SOME "$s3"
+    | getRegName(20) = SOME "$s4"
+    | getRegName(21) = SOME "$s5"
+    | getRegName(22) = SOME "$s6"
+    | getRegName(23) = SOME "$s7"
+    | getRegName(24) = SOME "$t8"
+    | getRegName(25) = SOME "$t9"
+    | getRegName(26) = SOME "$k0"
+    | getRegName(27) = SOME "$k1"
+    | getRegName(28) = SOME "$gp"
+    | getRegName(29) = SOME "$sp"
+    | getRegName(30) = SOME "$fp"
+    | getRegName(31) = SOME "$ra"
+    | getRegName n = NONE
 
   fun name (frame: frame) = #name frame
 
@@ -99,13 +136,18 @@ struct
 
   fun prologue (label, stackSpace, formalAccesses) =
     let
-      fun buildPrologue ([], ~1) =
+      fun getArgLocation ind = if ind < argRegisterCount 
+          then Tree.TEMP (List.nth (argregs, ind))
+          else Tree.MEM (Tree.BINOP (Tree.PLUS, Tree.TEMP FP, Tree.CONST ((ind - argRegisterCount) * wordsize)))
+
+
+      val prologueCode =
             seq
               [ Tree.LABEL label
               , Tree.MOVE
                   ( Tree.MEM
                       (Tree.BINOP
-                         (Tree.MINUS, Tree.TEMP SP, Tree.CONST wordsize))
+                         (Tree.PLUS, Tree.TEMP SP, Tree.CONST fpOffset))
                   , Tree.TEMP FP
                   )
               , (* save old frame pointer in stack *)
@@ -113,53 +155,54 @@ struct
               , (* update frame pointer *)
                 Tree.MOVE
                   ( Tree.TEMP SP
-                  , Tree.BINOP (Tree.MINUS, Tree.TEMP SP, Tree.CONST stackSpace)
+                  , Tree.BINOP (Tree.PLUS, Tree.TEMP SP, Tree.CONST (~stackSpace))
                   )
               , (* decrement stack pointer *)
                 Tree.MOVE
                   ( Tree.MEM (Tree.BINOP
-                      (Tree.MINUS, Tree.TEMP FP, Tree.CONST (2 * wordsize)))
+                      (Tree.PLUS, Tree.TEMP FP, Tree.CONST raOffset))
                   , Tree.TEMP RA
                   ) (* save RA *)
               ]
-        | buildPrologue ((InReg r) :: rest, j) =
-            Tree.SEQ (buildPrologue (rest, j - 1), Tree.MOVE
-              (Tree.TEMP r, Tree.TEMP (a0 + j))) (* move args to temps *)
-        | buildPrologue (_, _) =
-            raise Fail "Unexpected access type in formalAccesses list"
-      val formalsWithRegAccesses =
-        List.filter
-          (fn access =>
-             case access of
-               InReg _ => true
-             | InFrame _ => false) formalAccesses
+        fun argMoveStatement (InReg r, (j, acc)) =
+            (j-1, (Tree.MOVE (Tree.TEMP r, getArgLocation j) :: acc)) (* move args to temps *)
+        | argMoveStatement (InFrame offs, (j, acc)) = 
+            (j-1, (Tree.MOVE(Tree.MEM (Tree.BINOP(Tree.PLUS, Tree.TEMP FP, Tree.CONST offs)), getArgLocation j) :: acc)) (* move args to stack *)
+
+        val (_, argMoves) =
+          foldr argMoveStatement (List.length formalAccesses - 1, []) formalAccesses
     in
-      buildPrologue
-        (formalsWithRegAccesses, List.length formalsWithRegAccesses - 1)
+      seq [prologueCode, seq argMoves]
     end
 
 
   fun epilogue (body) =
     seq
-      [ Tree.MOVE (Tree.TEMP RV, body)
-      , Tree.MOVE (Tree.TEMP RA, Tree.MEM (Tree.BINOP
-          (Tree.MINUS, Tree.TEMP FP, Tree.CONST (2 * wordsize))))
+      [Tree.MOVE (Tree.TEMP RV, body),
+        Tree.MOVE (Tree.TEMP RA, Tree.MEM (Tree.BINOP
+          (Tree.PLUS, Tree.TEMP FP, Tree.CONST raOffset)))
       , (* restore RA *)
         Tree.MOVE (Tree.TEMP SP, Tree.TEMP FP)
       , (* collapse stack frame *)
         Tree.MOVE (Tree.TEMP FP, Tree.MEM (Tree.BINOP
-          (Tree.MINUS, Tree.TEMP FP, Tree.CONST (wordsize))))
+          (Tree.PLUS, Tree.TEMP FP, Tree.CONST fpOffset)))
       , (* restore FP *)
         Tree.JUMP (Tree.TEMP RA, [])
       ]
 
+  fun framesize (frame: frame) =
+    let
+      val sizeForLocals = !(#numLocalsInFrame frame) * wordsize
+      val sizeForArgs = !(#numWordsForStackArgPassing frame) * wordsize
+    in
+      sizeForLocals + sizeForArgs
+    end
 
   (* not used at all right now can uncomment adding locals in new frame to make this work *)
   fun addPrologueEpliogue (frame: frame, bodyExp: Tree.exp) =
     (* code for moving args into general purpose registers *)
     let
-      val stackSpace = wordsize * !(#numLocalsInFrame frame)
-      val numRegArgs = #numRegArgs frame
+      val stackSpace = framesize frame
       val label = #name frame
       val formalAccesses = #formals frame
 
@@ -176,35 +219,21 @@ struct
 
   fun newFrame {name: Temp.label, formals: bool list} =
     let
-      fun oneFormalToAccess (true, (offset, formals, numRegArgs)) =
-            (offset + wordsize, (InFrame offset) :: formals, numRegArgs)
-        | oneFormalToAccess (false, (offset, formals, numRegArgs)) =
-            if
-              numRegArgs
-              < argRegisterCount (* only 4 parameters can be passed in a0-a3 *)
-            then (offset, (InReg (Temp.newtemp ())) :: formals, numRegArgs + 1)
-            else (offset + wordsize, (InFrame offset) :: formals, numRegArgs)
-      val (numBytesForFormals, accesses, numRegArgs) =
-        foldr oneFormalToAccess (0, [], 0) formals
+      fun oneFormalToAccess (true, (offset, formals)) =
+            (offset + wordsize, (InFrame (~(offset+wordsize))) :: formals)
+        | oneFormalToAccess (false, (offset, formals)) =
+            (offset, (InReg (Temp.newtemp ())) :: formals)
+      val raFpSpace = 2 * wordsize
+      val (numBytesForFormals, accesses) =
+        foldl oneFormalToAccess (raFpSpace, []) formals
       val f =
         { name = name
-        , formals = accesses
-        , numLocalsInFrame = ref 0
+        , formals = List.rev accesses
+        , numLocalsInFrame = ref (numBytesForFormals div wordsize)
         , numWordsForStackArgPassing = ref 0
-        , numRegArgs = numRegArgs
         }
     in
-      (* allocLocal f true;
-      allocLocal f true; for RA *)
       f
     end
 
-  fun framesize (frame: frame) =
-    let
-      val sizeForLocals = !(#numLocalsInFrame frame) * wordsize
-      val sizeForRegs = 2 * wordsize (* TODO: is this correct? *)
-      val sizeForStack = !(#numWordsForStackArgPassing frame)
-    in
-      sizeForLocals + sizeForRegs + sizeForStack
-    end
 end

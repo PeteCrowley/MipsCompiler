@@ -137,7 +137,7 @@ struct
         else
           followStaticLinks
             ( parLev
-            , Tree.MEM currFpAddr
+            , Tree.MEM (Tree.BINOP(Tree.PLUS, currFpAddr, Tree.CONST Frame.slOffset))
             , targetUq
             ) (* since static links are stored at offset 0 *)
     | followStaticLinks (EMPTY, _, _) =
@@ -188,8 +188,8 @@ struct
         case level of
           EMPTY => raise Fail "Outermost level has no frame"
         | NODE (_, frame, _) => frame
-      val bodyExpWithReturn = Tree.MOVE (Tree.TEMP Frame.RV, bodyExp)
-      val funcFrag = Frame.PROC {body = bodyExpWithReturn, frame = f}
+      val funcWithPrologueEpilogue = Frame.addPrologueEpliogue (f, bodyExp)
+      val funcFrag = Frame.PROC {body = funcWithPrologueEpilogue, frame = f}
     in
       frags := funcFrag :: !frags
     end
@@ -200,7 +200,7 @@ struct
         case level of
           EMPTY => raise Fail "current level cannot be EMPTY"
         | NODE v => v
-      val _ = Frame.allocSpaceForStackArgs (callerFrame, List.length args)
+      val _ = Frame.allocSpaceForStackArgs (callerFrame, List.length args + 1) (* +1 for static link *)
       val (calleeGrandPar, parentFrame, parentUq) =
         case funcLevel of
           EMPTY => raise Fail "Function level cannot be outermost level"

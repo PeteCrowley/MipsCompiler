@@ -1,5 +1,5 @@
 let
-    var j = 0
+    var j := 0
 in
     while j < 10 do (j := j + 1; if j = 5 then break else ())
 end
