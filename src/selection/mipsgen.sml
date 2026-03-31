@@ -16,6 +16,10 @@ struct
         in gen t; t
         end
 
+      (* The SML Int.toString uses ~ as the negative sign *)
+      fun betterIntToString x =
+        if x < 0 then "-" ^ Int.toString (~x) else Int.toString x
+
       fun relopToBranch Tree.EQ = "beq"
         | relopToBranch Tree.NE = "bne"
         | relopToBranch Tree.LT = "blt"
@@ -32,7 +36,7 @@ struct
         (* Store: MEM[i] = s0 *)
         | munchStm (Tree.MOVE (Tree.MEM (Tree.CONST i), e1)) =
             emit (Assem.OPER
-              { assem = "    sw `s0, " ^ Int.toString i ^ "($0)\n"
+              { assem = "    sw `s0, " ^ betterIntToString i ^ "($0)\n"
               , src = [munchExp e1]
               , dst = []
               , jump = NONE
@@ -41,7 +45,7 @@ struct
         | munchStm
             (Tree.MOVE (Tree.MEM (Tree.BINOP (Tree.PLUS, e1, Tree.CONST i)), e2)) =
             emit (Assem.OPER
-              { assem = "    sw `s1, " ^ Int.toString i ^ "(`s0)\n"
+              { assem = "    sw `s1, " ^ betterIntToString i ^ "(`s0)\n"
               , src = [munchExp e1, munchExp e2]
               , dst = []
               , jump = NONE
@@ -50,7 +54,7 @@ struct
         | munchStm
             (Tree.MOVE (Tree.MEM (Tree.BINOP (Tree.PLUS, Tree.CONST i, e1)), e2)) =
             emit (Assem.OPER
-              { assem = "    sw `s1, " ^ Int.toString i ^ "(`s0)\n"
+              { assem = "    sw `s1, " ^ betterIntToString i ^ "(`s0)\n"
               , src = [munchExp e1, munchExp e2]
               , dst = []
               , jump = NONE
@@ -75,38 +79,41 @@ struct
         | munchStm (Tree.LABEL l) =
             emit (Assem.LABEL {assem = Symbol.name l ^ ":\n", lab = l})
 
-        (* TODO: jumps *)
-        | munchStm (Tree.JUMP (Tree.NAME lab, _)) = 
+        | munchStm (Tree.JUMP (Tree.NAME lab, _)) =
             emit (Assem.OPER
               { assem = "    j " ^ Symbol.name lab ^ "\n"
               , src = []
               , dst = []
               , jump = SOME [lab]
               })
-        | munchStm (Tree.JUMP (Tree.TEMP reg, _)) = emit (Assem.OPER
+        | munchStm (Tree.JUMP (Tree.TEMP reg, _)) =
+            emit (Assem.OPER
               { assem = "    jr `s0\n"
               , src = [munchExp (Tree.TEMP reg)]
               , dst = []
               , jump = NONE
               })
-        | munchStm (Tree.JUMP _) = raise Fail "Unsupported jump statement in IR"
+        | munchStm (Tree.JUMP _) =
+            raise Fail "Unsupported jump statement in IR"
         (* For CJUMPS we can assume the CJUMP is followed immediately by it's false label *)
-        | munchStm (Tree.CJUMP (relop, exp1, exp2, tlab, flab)) = emit (Assem.OPER{
-              assem = "    " ^ relopToBranch relop ^ " `s0, `s1, " ^ Symbol.name tlab ^ "\n"
+        | munchStm (Tree.CJUMP (relop, exp1, exp2, tlab, flab)) =
+            emit (Assem.OPER
+              { assem =
+                  "    " ^ relopToBranch relop ^ " `s0, `s1, "
+                  ^ Symbol.name tlab ^ "\n"
               , src = [munchExp exp1, munchExp exp2]
               , dst = []
               , jump = SOME [tlab, flab]
-            })
+              })
 
         | munchStm (Tree.EXP e) =
             (munchExp e; ())
 
       and munchExp (Tree.TEMP t) = t
-        (* TODO: this fails to assemble if i larger than 16-bit *)
         | munchExp (Tree.CONST i) =
             result (fn r =>
               emit (Assem.OPER
-                { assem = "    li `d0, " ^ Int.toString i ^ "\n"
+                { assem = "    li `d0, " ^ betterIntToString i ^ "\n"
                 , src = []
                 , dst = [r]
                 , jump = NONE
@@ -124,12 +131,14 @@ struct
 
         (* Call a static function *)
         | munchExp (Tree.CALL (Tree.NAME name, args)) =
-            (emit (Assem.OPER
+            ( emit (Assem.OPER
                 { assem = "    jal " ^ Symbol.name name ^ "\n"
                 , src = munchArgs (0, args)
                 , dst = calldefs
                 , jump = NONE
-                }); MipsFrame.RV)
+                })
+            ; MipsFrame.RV
+            )
         (* Call a function from a register *)
         | munchExp (Tree.CALL (f, args)) =
             let
@@ -147,7 +156,7 @@ struct
         | munchExp (Tree.MEM (Tree.BINOP (Tree.PLUS, Tree.CONST i, e2))) =
             result (fn r =>
               emit (Assem.OPER
-                { assem = "    lw `d0, " ^ Int.toString i ^ "(`s0)\n"
+                { assem = "    lw `d0, " ^ betterIntToString i ^ "(`s0)\n"
                 , src = [munchExp e2]
                 , dst = [r]
                 , jump = NONE
@@ -156,7 +165,7 @@ struct
         | munchExp (Tree.MEM (Tree.BINOP (Tree.PLUS, e2, Tree.CONST i))) =
             result (fn r =>
               emit (Assem.OPER
-                { assem = "    lw `d0, " ^ Int.toString i ^ "(`s0)\n"
+                { assem = "    lw `d0, " ^ betterIntToString i ^ "(`s0)\n"
                 , src = [munchExp e2]
                 , dst = [r]
                 , jump = NONE
@@ -175,7 +184,7 @@ struct
         | munchExp (Tree.BINOP (Tree.PLUS, e1, Tree.CONST i)) =
             result (fn r =>
               emit (Assem.OPER
-                { assem = "    addi `d0, `s0, " ^ Int.toString i ^ "\n"
+                { assem = "    addi `d0, `s0, " ^ betterIntToString i ^ "\n"
                 , src = [munchExp e1]
                 , dst = [r]
                 , jump = NONE
@@ -184,7 +193,7 @@ struct
         | munchExp (Tree.BINOP (Tree.PLUS, Tree.CONST i, e1)) =
             result (fn r =>
               emit (Assem.OPER
-                { assem = "    addi `d0, `s0, " ^ Int.toString i ^ "\n"
+                { assem = "    addi `d0, `s0, " ^ betterIntToString i ^ "\n"
                 , src = [munchExp e1]
                 , dst = [r]
                 , jump = NONE
@@ -193,7 +202,7 @@ struct
         | munchExp (Tree.BINOP (Tree.MINUS, e1, Tree.CONST i)) =
             result (fn r =>
               emit (Assem.OPER
-                { assem = "    addi `d0, `s0, " ^ Int.toString (~i) ^ "\n"
+                { assem = "    addi `d0, `s0, " ^ betterIntToString (~i) ^ "\n"
                 , src = [munchExp e1]
                 , dst = [r]
                 , jump = NONE
@@ -247,7 +256,7 @@ struct
                 in
                   emit (Assem.OPER
                     { assem =
-                        "    sw `s0, " ^ Int.toString offset ^ "(`s1)\n"
+                        "    sw `s0, " ^ betterIntToString offset ^ "(`s1)\n"
                     , src = [srctemp, sp]
                     , dst = []
                     , jump = NONE
