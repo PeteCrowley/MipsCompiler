@@ -1,5 +1,6 @@
 structure Liveness:
 sig
+  structure IGraph: FUNC_GRAPH
   datatype igraph =
     IGRAPH of
       { graph: IGraph.graph
@@ -13,5 +14,4 @@ sig
                          -> igraph * (Graph.node -> Temp.temp list)
   val show: TextIO.outstream * igraph -> unit
 end =
-struct
-end
+struct structure IGraph = MakeGraph() end

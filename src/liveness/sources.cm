@@ -11,7 +11,6 @@ flowgraph.sml
 makegraph.sml
 liveness.sml
 
-(* TESTING *)
 func_graph.sig
 func_graph.sml
 

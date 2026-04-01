@@ -1,13 +1,17 @@
-structure FuncGraph: FUNC_GRAPH =
+(* Unit functor instead of a structure to allow creation of different graph
+ * types (flow, interference) *)
+functor MakeGraph () :> FUNC_GRAPH =
 struct
-  structure IntOrd = struct type ord_key = int val compare = Int.compare end
-  structure IntSet = RedBlackSetFn(IntOrd)
-  structure IntMap = RedBlackMapFn(IntOrd)
+  structure NodeOrd = struct type ord_key = int val compare = Int.compare end
+  structure NodeSet = RedBlackSetFn(NodeOrd)
+  structure NodeMap = RedBlackMapFn(NodeOrd)
 
   type node = int
-  type nodeset = IntSet.set
   type graph =
-    {nodes: nodeset, pred: nodeset IntMap.map, succ: nodeset IntMap.map}
+    { nodes: NodeSet.set
+    , pred: NodeSet.set NodeMap.map
+    , succ: NodeSet.set NodeMap.map
+    }
 
   fun nodes (g: graph) = #nodes g
 
@@ -16,7 +20,7 @@ struct
     let
       val s = #nodes g
       fun loop i =
-        if IntSet.member (s, i) then loop (i + 1) else i
+        if NodeSet.member (s, i) then loop (i + 1) else i
     in
       loop 0
     end
@@ -25,36 +29,37 @@ struct
   fun nodename (_, n) = Int.toString n
 
   fun succ (g: graph, n) =
-    case IntMap.find (#succ g, n) of
+    case NodeMap.find (#succ g, n) of
       SOME s => s
-    | NONE => IntSet.empty
+    | NONE => NodeSet.empty
   fun pred (g: graph, n) =
-    case IntMap.find (#pred g, n) of
+    case NodeMap.find (#pred g, n) of
       SOME s => s
-    | NONE => IntSet.empty
+    | NONE => NodeSet.empty
   fun adj (g, n) =
     let
       val pred = pred (g, n)
       val succ = succ (g, n)
     in
-      IntSet.union (pred, succ)
+      NodeSet.union (pred, succ)
     end
 
-  val empty = {nodes = IntSet.empty, pred = IntMap.empty, succ = IntMap.empty}
+  val empty =
+    {nodes = NodeSet.empty, pred = NodeMap.empty, succ = NodeMap.empty}
 
   fun addNode ({nodes, pred, succ}, n) =
     (* Ensure node exists in both maps *)
     let
-      val nodes' = IntSet.add (nodes, n)
+      val nodes' = NodeSet.add (nodes, n)
       val succ' =
-        case IntMap.find (succ, n) of
+        case NodeMap.find (succ, n) of
           SOME _ => succ
-        | NONE => IntMap.insert (succ, n, IntSet.empty)
+        | NONE => NodeMap.insert (succ, n, NodeSet.empty)
 
       val pred' =
-        case IntMap.find (pred, n) of
+        case NodeMap.find (pred, n) of
           SOME _ => pred
-        | NONE => IntMap.insert (pred, n, IntSet.empty)
+        | NONE => NodeMap.insert (pred, n, NodeSet.empty)
     in
       {nodes = nodes', succ = succ', pred = pred'}
     end
@@ -64,17 +69,17 @@ struct
       val {nodes, pred, succ} = addNode (addNode (g, to), from)
       (* update successors *)
       val succSet =
-        case IntMap.find (succ, from) of
+        case NodeMap.find (succ, from) of
           SOME s => s
-        | NONE => IntSet.empty
-      val succ' = IntMap.insert (succ, from, IntSet.add (succSet, to))
+        | NONE => NodeSet.empty
+      val succ' = NodeMap.insert (succ, from, NodeSet.add (succSet, to))
 
       (* update predecessors *)
       val predSet =
-        case IntMap.find (pred, to) of
+        case NodeMap.find (pred, to) of
           SOME s => s
-        | NONE => IntSet.empty
-      val pred' = IntMap.insert (pred, to, IntSet.add (predSet, from))
+        | NONE => NodeSet.empty
+      val pred' = NodeMap.insert (pred, to, NodeSet.add (predSet, from))
     in
       {nodes = nodes, succ = succ', pred = pred'}
     end
@@ -83,17 +88,17 @@ struct
     let
       val {nodes, succ, pred} = g
       val succ' =
-        case IntMap.find (succ, from) of
+        case NodeMap.find (succ, from) of
           SOME s =>
-            let val s' = IntSet.delete (s, to)
-            in IntMap.insert (succ, from, s')
+            let val s' = NodeSet.delete (s, to)
+            in NodeMap.insert (succ, from, s')
             end
         | NONE => succ
       val pred' =
-        case IntMap.find (pred, to) of
+        case NodeMap.find (pred, to) of
           SOME s =>
-            let val s' = IntSet.delete (s, from)
-            in IntMap.insert (pred, to, s')
+            let val s' = NodeSet.delete (s, from)
+            in NodeMap.insert (pred, to, s')
             end
         | NONE => pred
     in
@@ -104,35 +109,35 @@ struct
     let
       val {nodes, pred, succ} = g
       val succs =
-        case IntMap.find (succ, n) of
-          SOME s => IntSet.listItems s
+        case NodeMap.find (succ, n) of
+          SOME s => NodeSet.listItems s
         | NONE => []
       val preds =
-        case IntMap.find (pred, n) of
-          SOME s => IntSet.listItems s
+        case NodeMap.find (pred, n) of
+          SOME s => NodeSet.listItems s
         | NONE => []
       (* Remove n from successors of its predecessors *)
       fun removeFromSucc (p, m) =
-        case IntMap.find (m, p) of
+        case NodeMap.find (m, p) of
           SOME s =>
-            let val s' = IntSet.delete (s, n)
-            in IntMap.insert (m, p, s')
+            let val s' = NodeSet.delete (s, n)
+            in NodeMap.insert (m, p, s')
             end
         | NONE => m
       val succ' = List.foldl removeFromSucc succ preds
       (* Remove n from predecessors of its successors *)
       fun removeFromPred (s, m) =
-        case IntMap.find (m, s) of
+        case NodeMap.find (m, s) of
           SOME ps =>
-            let val ps' = IntSet.delete (ps, n)
-            in IntMap.insert (m, s, ps')
+            let val ps' = NodeSet.delete (ps, n)
+            in NodeMap.insert (m, s, ps')
             end
         | NONE => m
       val pred' = List.foldl removeFromPred pred succs
       (* Finally remove n itself *)
-      val succ'' = IntMap.remove (succ', n)
-      val pred'' = IntMap.remove (pred', n)
-      val nodes' = IntSet.delete (nodes, n)
+      val (succ'', _) = NodeMap.remove (succ', n)
+      val (pred'', _) = NodeMap.remove (pred', n)
+      val nodes' = NodeSet.delete (nodes, n)
     in
       {nodes = nodes', succ = succ'', pred = pred''}
     end

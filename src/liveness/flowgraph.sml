@@ -1,11 +1,12 @@
 structure Flow =
 struct
+  structure Graph = MakeGraph()
   datatype flowgraph =
     FGRAPH of
       { control: Graph.graph
-      , def: Temp.temp list Graph.Table.table
-      , use: Temp.temp list Graph.Table.table
-      , ismove: bool Graph.Table.table
+      , def: Temp.temp list Graph.NodeMap.map
+      , use: Temp.temp list Graph.NodeMap.map
+      , ismove: bool Graph.NodeMap.map
       }
 
 (* Note:  any "use" within the block is assumed to be BEFORE a "def" 

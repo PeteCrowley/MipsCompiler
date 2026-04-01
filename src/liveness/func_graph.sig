@@ -1,14 +1,15 @@
 signature FUNC_GRAPH =
 sig
   type node
-  type nodeset
   type graph
 
-  val nodes: graph -> nodeset
-  val succ: graph * node -> nodeset
-  val pred: graph * node -> nodeset
-  val adj: graph * node -> nodeset (* succ+pred *)
-  val eq: graph * node * node -> bool
+  structure NodeSet: ORD_SET where type Key.ord_key = node
+  structure NodeMap: ORD_MAP where type Key.ord_key = node
+
+  val nodes: graph -> NodeSet.set
+  val succ: graph * node -> NodeSet.set
+  val pred: graph * node -> NodeSet.set
+  val adj: graph * node -> NodeSet.set (* succ+pred *)
 
   val empty: graph
   val find_unused_node: graph -> node
