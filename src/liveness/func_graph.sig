@@ -19,4 +19,6 @@ sig
   val rmNode: graph * node -> graph
 
   val nodename: graph * node -> string
+
+  val fold_dfs: (('a * node) -> 'a) -> node -> 'a -> graph -> 'a
 end

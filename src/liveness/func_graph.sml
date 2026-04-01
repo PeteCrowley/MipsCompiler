@@ -141,4 +141,35 @@ struct
     in
       {nodes = nodes', succ = succ'', pred = pred''}
     end
+
+  fun fold_dfs f root init g =
+    let
+      fun dfs (node, (acc, visited)) =
+        let
+          val succ = succ (g, node)
+          val visitedThisNode = NodeMap.find (visited, node)
+          (* Recursively search all children of the graph *)
+          fun searchChildren (a, v) =
+            let
+              (* Apply accumulator function for current node *)
+              val acc' = f (a, node)
+              (* Mark current node as visited *)
+              val visited' = NodeMap.insert (v, node, true)
+            in
+              NodeSet.foldl dfs (acc', visited') succ
+            end
+        in
+          case visitedThisNode of
+          (* Already visited; skip iteration *)
+            SOME true => (acc, visited)
+          (* Not visited; search all the children *)
+          | SOME false => searchChildren (acc, visited)
+          (* Node not in graph; probably an error *)
+          (* TODO *)
+          | NONE => (acc, visited)
+        end
+      val init_visited = NodeMap.empty
+    in
+      dfs (root, (init, init_visited))
+    end
 end
