@@ -1,6 +1,6 @@
 signature FUNC_GRAPH =
 sig
-  type node
+  eqtype node
   type graph
 
   structure NodeSet: ORD_SET where type Key.ord_key = node
@@ -10,6 +10,10 @@ sig
   val succ: graph * node -> NodeSet.set
   val pred: graph * node -> NodeSet.set
   val adj: graph * node -> NodeSet.set (* succ+pred *)
+
+  val reverse: graph -> graph
+  val sources: graph -> NodeSet.set
+  val sinks: graph -> NodeSet.set
 
   val empty: graph
   val find_unused_node: graph -> node
@@ -21,4 +25,5 @@ sig
   val nodename: graph * node -> string
 
   val fold_dfs: (('a * node) -> 'a) -> node -> 'a -> graph -> 'a
+  val foldl_dfs: (('a * node) -> 'a) -> node list -> 'a -> graph -> 'a
 end

@@ -44,6 +44,22 @@ struct
       NodeSet.union (pred, succ)
     end
 
+  fun reverse graph =
+    let val {nodes, pred, succ} = graph
+    in {nodes = nodes, pred = succ, succ = pred}
+    end
+
+  fun sources graph =
+    let
+      fun isSource node =
+        NodeSet.isEmpty (pred (graph, node))
+      val {nodes, pred, succ} = graph
+    in
+      NodeSet.filter isSource nodes
+    end
+  fun sinks graph =
+    sources (reverse graph)
+
   val empty =
     {nodes = NodeSet.empty, pred = NodeMap.empty, succ = NodeMap.empty}
 
@@ -170,5 +186,12 @@ struct
       val (acc, _) = dfs (root, (init, init_visited))
     in
       acc
+    end
+  fun foldl_dfs f roots init g =
+    let
+      fun fold (root, acc) =
+        fold_dfs f root acc g
+    in
+      foldl fold init roots
     end
 end
