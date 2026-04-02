@@ -75,12 +75,25 @@ struct
               , dst = []
               , jump = SOME [lab]
               })
+
+        (* This functions as the MIPS return statement *)
         | munchStm (Tree.JUMP (Tree.TEMP reg, _)) =
             emit (Assem.OPER
               { assem = "    jr `s0\n"
-              , src = [munchExp (Tree.TEMP reg)]
+              (* Per Appel (see notes on `procEntryExit2`, we should mark all
+               * callee-saved and special registers as used here so that they're
+               * live throughout the body of the function.
+               * Additionally, marking callee-saved registers as used here means
+               * only the registers we explicitly save in the prologue will be
+               * available in the epilogue.
+               *)
+              , src =
+                  munchExp
+                    (Tree.TEMP reg) (* Almost certainly $ra, but that's
+                                       Appel's problem not mine *)
+                  :: MipsFrame.specialregs @ MipsFrame.calleesaves
               , dst = []
-              , jump = NONE
+              , jump = SOME [] (* Sink in the flow graph *)
               })
         | munchStm (Tree.JUMP _) =
             raise Fail "Unsupported jump statement in IR"
