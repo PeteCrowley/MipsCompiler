@@ -13,6 +13,9 @@ sig
   val formals: frame -> access list
   val allocLocal: frame -> bool -> access
 
+  val registers : register list
+  val initialMappings : register Temp.Table.table
+
   val FP: Temp.temp (* frame pointer register *)
   val RV: Temp.temp (* return value register *)
   val wordsize: int

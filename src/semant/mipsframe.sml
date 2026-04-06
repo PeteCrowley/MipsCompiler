@@ -49,6 +49,9 @@ struct
     val callersaves = range (8, 15) @ [24, 25]
     (* s registers *)
     val calleesaves = range (16, 23)
+    val returnregs = range (2, 3)
+    val precoloredTemps = specialregs @ argregs @ returnregs
+    val allregs = range (0, 31)
   end
 
   fun getRegName(0) = SOME "$zero"
@@ -84,6 +87,18 @@ struct
     | getRegName(30) = SOME "$fp"
     | getRegName(31) = SOME "$ra"
     | getRegName n = NONE
+
+  val initialMappings = 
+    let
+      fun f (temp, acc) =
+            case getRegName temp of
+              SOME reg => Temp.Table.enter (acc, temp, reg)
+            | NONE => acc (* never hit *)
+    in
+      List.foldl f Temp.Table.empty precoloredTemps
+    end
+
+  val registers = map (fn x => case getRegName x of SOME n => n | NONE => "") allregs
 
   fun name (frame: frame) = #name frame
 
