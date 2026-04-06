@@ -10,6 +10,11 @@ graph.sml
 flowgraph.sml
 makegraph.sml
 liveness.sml
+regalloc.sig
+regalloc.sml
+color.sig
+color.sml
+
 
 func_graph.sig
 func_graph.sml
