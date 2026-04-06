@@ -8,22 +8,16 @@ struct
 
   type node = int
   type graph =
-    { nodes: NodeSet.set
+    { unused_node: node (* Must be larger than any node in use *)
+    , nodes: NodeSet.set
     , pred: NodeSet.set NodeMap.map
     , succ: NodeSet.set NodeMap.map
     }
 
   fun nodes (g: graph) = #nodes g
 
-  (* Gets the smallest unused node in O(n) time *)
-  fun find_unused_node (g: graph) =
-    let
-      val s = #nodes g
-      fun loop i =
-        if NodeSet.member (s, i) then loop (i + 1) else i
-    in
-      loop 0
-    end
+  (* Gets some unused node in O(1) time *)
+  fun find_unused_node (g: graph) = #unused_node g
 
   (* TODO *)
   fun nodename (_, n) = Int.toString n
@@ -45,15 +39,15 @@ struct
     end
 
   fun reverse graph =
-    let val {nodes, pred, succ} = graph
-    in {nodes = nodes, pred = succ, succ = pred}
+    let val {unused_node, nodes, pred, succ} = graph
+    in {unused_node = unused_node, nodes = nodes, pred = succ, succ = pred}
     end
 
   fun sources graph =
     let
       fun isSource node =
         NodeSet.isEmpty (pred (graph, node))
-      val {nodes, pred, succ} = graph
+      val {unused_node, nodes, pred, succ} = graph
     in
       NodeSet.filter isSource nodes
     end
@@ -61,12 +55,17 @@ struct
     sources (reverse graph)
 
   val empty =
-    {nodes = NodeSet.empty, pred = NodeMap.empty, succ = NodeMap.empty}
+    { unused_node = 0
+    , nodes = NodeSet.empty
+    , pred = NodeMap.empty
+    , succ = NodeMap.empty
+    }
 
-  fun addNode ({nodes, pred, succ}, n) =
+  fun addNode ({unused_node, nodes, pred, succ}, n) =
     (* Ensure node exists in both maps *)
     let
       val nodes' = NodeSet.add (nodes, n)
+      val unused_node' = Int.max (unused_node, n + 1)
       val succ' =
         case NodeMap.find (succ, n) of
           SOME _ => succ
@@ -77,12 +76,12 @@ struct
           SOME _ => pred
         | NONE => NodeMap.insert (pred, n, NodeSet.empty)
     in
-      {nodes = nodes', succ = succ', pred = pred'}
+      {unused_node = unused_node', nodes = nodes', succ = succ', pred = pred'}
     end
 
   fun addEdge (g, {from, to}) =
     let
-      val {nodes, pred, succ} = addNode (addNode (g, to), from)
+      val {unused_node, nodes, pred, succ} = addNode (addNode (g, to), from)
       (* update successors *)
       val succSet =
         case NodeMap.find (succ, from) of
@@ -97,12 +96,12 @@ struct
         | NONE => NodeSet.empty
       val pred' = NodeMap.insert (pred, to, NodeSet.add (predSet, from))
     in
-      {nodes = nodes, succ = succ', pred = pred'}
+      {unused_node = unused_node, nodes = nodes, succ = succ', pred = pred'}
     end
 
   fun rmEdge (g, {from, to}) =
     let
-      val {nodes, succ, pred} = g
+      val {unused_node, nodes, succ, pred} = g
       val succ' =
         case NodeMap.find (succ, from) of
           SOME s =>
@@ -118,12 +117,12 @@ struct
             end
         | NONE => pred
     in
-      {nodes = nodes, succ = succ', pred = pred'}
+      {unused_node = unused_node, nodes = nodes, succ = succ', pred = pred'}
     end
 
   fun rmNode (g, n) =
     let
-      val {nodes, pred, succ} = g
+      val {unused_node, nodes, pred, succ} = g
       val succs =
         case NodeMap.find (succ, n) of
           SOME s => NodeSet.listItems s
@@ -155,7 +154,7 @@ struct
       val (pred'', _) = NodeMap.remove (pred', n)
       val nodes' = NodeSet.delete (nodes, n)
     in
-      {nodes = nodes', succ = succ'', pred = pred''}
+      {unused_node = unused_node, nodes = nodes', succ = succ'', pred = pred''}
     end
 
   fun fold_dfs f root init g =
