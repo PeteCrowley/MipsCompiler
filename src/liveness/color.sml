@@ -19,25 +19,36 @@ struct
           val K = List.length registers
           val Liveness.IGRAPH {graph, tnode, gtemp, moves} = interference
           fun degree (node, igraph) = NodeSet.numItems (Liveness.IGraph.adj (igraph, node))
+
+          val precoloredNodes =
+            let
+              val allNodes = Liveness.IGraph.nodes graph
+              fun isPrecolored node =
+                case Temp.Table.look (initial, gtemp node) of
+                  SOME _ => true
+                | NONE => false
+            in
+                NodeSet.fromList (List.filter isPrecolored (NodeSet.listItems allNodes))
+            end
           
           fun makeWorklists () =
             let
                 fun makeListHelper (node, (accSimp, accSpill, accFreeze, accMoves, accMoveMap)) =
                     let
-                      val movesInvolvedWith = (List.filter (fn (u, v) => u = node orelse v = node) moves)
+                      val movesInvolvedWith = NodePairSet.fromList (List.filter (fn (u, v) => u = node orelse v = node) moves)
 
                     in
                       if degree (node, graph) >= K then (accSimp, NodeSet.add (accSpill, node), accFreeze, accMoves, accMoveMap)
-                      else if not (List.length movesInvolvedWith = 0) then (accSimp, accSpill, 
+                      else if not (NodePairSet.isEmpty movesInvolvedWith) then (accSimp, accSpill, 
                                                                             NodeSet.add (accFreeze, node), 
-                                                                            NodePairSet.addList (accMoves, movesInvolvedWith), 
+                                                                            NodePairSet.union (accMoves, movesInvolvedWith), 
                                                                             NodeMap.insert (accMoveMap, node, movesInvolvedWith))
                       else (NodeSet.add (accSimp, node), accSpill, accFreeze, accMoves, accMoveMap)
                     end
-              val nodeList = NodeSet.listItems (Liveness.IGraph.nodes graph)
+              val nonPrecoloredNodes = NodeSet.filter (fn node => not (NodeSet.member (precoloredNodes, node))) (Liveness.IGraph.nodes graph) 
 
             in
-                List.foldl makeListHelper (NodeSet.empty, NodeSet.empty, NodeSet.empty, NodePairSet.empty, NodeMap.empty) nodeList
+                NodeSet.foldl makeListHelper (NodeSet.empty, NodeSet.empty, NodeSet.empty, NodePairSet.empty, NodeMap.empty) nonPrecoloredNodes
             end
 
           val (simplifyWorklist, spillWorklist, freezeWorklist, worklistMoves, moveList) = makeWorklists ()
@@ -52,24 +63,120 @@ struct
           val frozenMoves = NodePairSet.empty
           val activeMoves = NodePairSet.empty
           
+          val alias = NodeMap.empty
+
           
 
+          fun colorMain (igraph, simplifyWorklist, spillWorklist, freezeWorklist, selectStack, activeMoves, worklistMoves, alias) =
+            let
+                fun nodeMoves (node, activeMovs) = case NodeMap.find (moveList, node) of
+                    SOME movs => NodePairSet.intersection (movs, NodePairSet.union (activeMovs, worklistMoves))
+                    | NONE => NodePairSet.empty
 
-          fun simplify () = ()
-          fun coalesce () = ()
-          fun freeze () = ()
-          
-          fun assignColors () = initial
+                fun isMoveRelated (node, activeMovs) = not (NodePairSet.isEmpty (nodeMoves (node, activeMovs)))
 
-          fun colorMain () =
-            if not (NodeSet.isEmpty simplifyWorklist) then (simplify (); colorMain ())
-            else if not (NodePairSet.isEmpty worklistMoves) then (coalesce (); colorMain ())
-            else if not (NodeSet.isEmpty freezeWorklist) then (freeze (); colorMain ())
-            else assignColors ()
+            
+                fun removeNodeFromGraph node = 
+                    let
+                        val adjNodes = Liveness.IGraph.adj (graph, node)
 
+                        fun enableMoves nodes = 
+                            let
+                                fun enableMove (m, (accActive, accWorklist)) =
+                                    if NodePairSet.member (activeMoves, m) then (NodePairSet.delete (accActive, m), NodePairSet.add (accWorklist, m))
+                                    else (accActive, accWorklist)
+
+                                fun enableMovesForNode (adjNode, (accActive, accWorklist)) =
+                                    let
+                                        val moves = nodeMoves (adjNode, activeMoves)
+                                    in
+                                        NodePairSet.foldl enableMove (accActive, accWorklist) moves
+                                    end
+                            in
+                                NodeSet.foldl enableMovesForNode (activeMoves, worklistMoves) nodes
+                            end
+
+                        fun updateWorklist (adjNode, (simplify, spill, freeze)) =
+                            if degree(adjNode, igraph) = K andalso not (NodeSet.member (precoloredNodes, adjNode)) then
+                                (enableMoves (NodeSet.union(NodeSet.singleton adjNode, Liveness.IGraph.adj (igraph, adjNode)));
+                                if isMoveRelated (adjNode, activeMoves)
+                                    then (NodeSet.add (simplify, adjNode), NodeSet.delete (spill, adjNode), freeze)
+                                else (NodeSet.add (simplify, adjNode), NodeSet.delete (spill, adjNode), freeze))
+                            else (simplify, spill, freeze)
+
+                        val (newSimplify, newSpill, newFreeze) = NodeSet.foldl updateWorklist (simplifyWorklist, spillWorklist, freezeWorklist) adjNodes
+                        val newGraph = Liveness.IGraph.rmNode (igraph, node)
+
+                    in
+                        (newGraph, newSimplify, newSpill, newFreeze)
+                    end
+
+                fun simplify () =
+                    let
+                        val node = NodeSet.minItem simplifyWorklist
+                        val (newGraph, newSimplify, newSpill, newFreeze) = removeNodeFromGraph node
+                        val newSimplifyWorklist = NodeSet.delete (newSimplify, node)
+                    in
+                        colorMain (newGraph, newSimplifyWorklist, newSpill, newFreeze, node :: selectStack, activeMoves, worklistMoves, alias)
+                    end
+
+                fun getAlias node =
+                    case NodeMap.find (alias, node) of
+                        SOME n => getAlias n
+                    | NONE => node
+
+                fun coalesce () =
+                    let
+                        val (x, y) = NodePairSet.minItem worklistMoves
+                        val (alx, aly) = (getAlias x, getAlias y)
+                        val (u, v) = if NodeSet.member (precoloredNodes, aly) then (aly, alx) else (alx, aly)
+                        val newWorklistMoves = NodePairSet.delete (worklistMoves, (x, y))
+                        (* TODO: will update these later to actually coalesce stuff but will just say we can't do any for now*)
+                        val (newSimplify, newFreeze, newActiveMoves) = (simplifyWorklist, freezeWorklist, NodePairSet.add (activeMoves, (x, y)))
+                    in
+                        colorMain (igraph, newSimplify, spillWorklist, newFreeze, selectStack, newActiveMoves, newWorklistMoves, alias)
+                    end
+
+                fun freezeMoves u = 
+                    let
+                      fun freezeMove ((x, y), (simpAcc, freezeAcc, activeMovesAcc)) = 
+                        let
+                          val v = if getAlias y = getAlias u then getAlias x else getAlias y
+                          val newActiveMoves = NodePairSet.delete (activeMovesAcc, (x, y))
+                          val (newFreeze, newSimplify) = if not (isMoveRelated (v, activeMovesAcc)) andalso degree (v, igraph) < K then (NodeSet.delete (freezeAcc, v), NodeSet.add (simpAcc, v))
+                                                        else (freezeAcc, simpAcc)
+                        in
+                          (newSimplify, newFreeze, newActiveMoves)
+                        end
+
+                      val moves = case NodeMap.find (moveList, u) of
+                                    SOME movs => NodePairSet.intersection (movs, activeMoves)
+                                  | NONE => NodePairSet.empty
+
+                    in
+                      NodePairSet.foldl freezeMove (simplifyWorklist, freezeWorklist, activeMoves) moves
+                    end
+
+                fun freeze () =
+                    let
+                      val u = NodeSet.minItem freezeWorklist
+                      val (newSimplify, newFreeze, newActiveMoves) = freezeMoves u
+                      val newFreezeWorklist = NodeSet.delete (newFreeze, u)
+                      val newSimplifyWorkList = NodeSet.add (newSimplify, u)
+                    in
+                      colorMain (igraph, newSimplifyWorkList, spillWorklist, newFreezeWorklist, selectStack, newActiveMoves, worklistMoves, alias)
+                    end
+                
+                fun assignColors () = initial
+            in
+              if not (NodeSet.isEmpty simplifyWorklist) then simplify ()
+                else if not (NodePairSet.isEmpty worklistMoves) then coalesce ()
+                else if not (NodeSet.isEmpty freezeWorklist) then freeze ()
+                else assignColors ()
+            end
 
         in
-          (colorMain (), [])
+          (colorMain (graph, simplifyWorklist, spillWorklist, freezeWorklist, selectStack, activeMoves, worklistMoves, alias), [])
         end
         
         
