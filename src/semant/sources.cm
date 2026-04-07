@@ -12,8 +12,8 @@ translate.sml
 prexpty.sml
 printtree.sml
 tree.sml
-temp.sml
 temp.sig
+temp.sml
 translate.sig
 frame.sig
 mipsframe.sml

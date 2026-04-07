@@ -33,10 +33,11 @@ struct
       (temps := 100; labs := 100)
   end
 
-  local
-    structure Key: ORD_KEY =
-    struct type ord_key = temp val compare = Int.compare end
-  in structure Set = RedBlackSetFn(Key) structure Map = RedBlackMapFn(Key)
-  end
+
+  structure Key: ORD_KEY =
+  struct type ord_key = temp val compare = Int.compare end
+  structure Set = RedBlackSetFn(Key)
+  structure Map = RedBlackMapFn(Key)
+
 
 end
