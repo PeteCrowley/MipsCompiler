@@ -19,6 +19,7 @@ struct
           val K = List.length registers
           val Liveness.IGRAPH {graph, tnode, gtemp, moves} = interference
           fun degree (node, igraph) = NodeSet.numItems (Liveness.IGraph.adj (igraph, node))
+          val okColors = List.tabulate (K, fn i => i)
 
           val precoloredNodes =
             let
@@ -67,7 +68,7 @@ struct
 
           
 
-          fun colorMain (igraph, simplifyWorklist, spillWorklist, freezeWorklist, selectStack, activeMoves, worklistMoves, alias) =
+          fun colorMain (igraph, simplifyWorklist, spillWorklist, freezeWorklist, coalescedNodes, selectStack, activeMoves, worklistMoves, alias) =
             let
                 fun nodeMoves (node, activeMovs) = case NodeMap.find (moveList, node) of
                     SOME movs => NodePairSet.intersection (movs, NodePairSet.union (activeMovs, worklistMoves))
@@ -117,7 +118,7 @@ struct
                         val (newGraph, newSimplify, newSpill, newFreeze) = removeNodeFromGraph node
                         val newSimplifyWorklist = NodeSet.delete (newSimplify, node)
                     in
-                        colorMain (newGraph, newSimplifyWorklist, newSpill, newFreeze, node :: selectStack, activeMoves, worklistMoves, alias)
+                        colorMain (newGraph, newSimplifyWorklist, newSpill, newFreeze, coalescedNodes, node :: selectStack, activeMoves, worklistMoves, alias)
                     end
 
                 fun getAlias node =
@@ -134,7 +135,7 @@ struct
                         (* TODO: will update these later to actually coalesce stuff but will just say we can't do any for now*)
                         val (newSimplify, newFreeze, newActiveMoves) = (simplifyWorklist, freezeWorklist, NodePairSet.add (activeMoves, (x, y)))
                     in
-                        colorMain (igraph, newSimplify, spillWorklist, newFreeze, selectStack, newActiveMoves, newWorklistMoves, alias)
+                        colorMain (igraph, newSimplify, spillWorklist, newFreeze, coalescedNodes, selectStack, newActiveMoves, newWorklistMoves, alias)
                     end
 
                 fun freezeMoves u = 
@@ -164,10 +165,50 @@ struct
                       val newFreezeWorklist = NodeSet.delete (newFreeze, u)
                       val newSimplifyWorkList = NodeSet.add (newSimplify, u)
                     in
-                      colorMain (igraph, newSimplifyWorkList, spillWorklist, newFreezeWorklist, selectStack, newActiveMoves, worklistMoves, alias)
+                      colorMain (igraph, newSimplifyWorkList, spillWorklist, newFreezeWorklist, coalescedNodes, selectStack, newActiveMoves, worklistMoves, alias)
                     end
                 
-                fun assignColors () = initial
+                fun assignColors () = 
+                    let
+                      fun assignHelper ([], colorMap) = colorMap
+                        | assignHelper (node :: rest, colorMap) = 
+                            let
+                              fun getAvailableColorsHelper (adjNode, openColors) = 
+                                let
+                                  val aliasNode = getAlias adjNode
+                                in
+                                  case NodeMap.find (colorMap, aliasNode) of
+                                    SOME color => List.filter (fn c => c <> color) openColors
+                                  | NONE => openColors
+                                end
+
+                              val availableColors = NodeSet.foldl getAvailableColorsHelper okColors (Liveness.IGraph.adj (graph, node))
+                              (* TODO: could do more logic to choose a certain register more often than others *)
+                              val chosenColor = case availableColors of
+                                                [] => raise Fail "Spill required"
+                                              | c :: _ => c
+                              val newColorMap = NodeMap.insert (colorMap, node, chosenColor)
+                            in
+                              assignHelper (rest, newColorMap)
+                            end
+                      val initialColorMap = NodeSet.foldl (fn (node, acc) => NodeMap.insert(acc, node, gtemp node)) NodeMap.empty precoloredNodes
+                      val colorMap = assignHelper (selectStack, initialColorMap)
+                      val colorMapWithCoalesced = NodeSet.foldl (fn (node, acc) => NodeMap.insert (acc, node, case NodeMap.find (colorMap, getAlias node) of SOME col => col | NONE => raise Fail "Alias of node not colored")) colorMap coalescedNodes
+                      val tempMappings = 
+                      let
+                        fun getTempMapping (node, acc) = 
+                            let
+                              val temp = gtemp node
+                              val reg = List.nth (registers, case NodeMap.find (colorMapWithCoalesced, node) of SOME col => col | NONE => raise Fail "Node not colored")
+                            in
+                              Temp.Table.enter (acc, temp, reg)
+                            end
+                      in
+                        foldl getTempMapping Temp.Table.empty (NodeMap.listKeys colorMapWithCoalesced)
+                      end
+                    in
+                      tempMappings
+                    end
             in
               if not (NodeSet.isEmpty simplifyWorklist) then simplify ()
                 else if not (NodePairSet.isEmpty worklistMoves) then coalesce ()
@@ -176,7 +217,7 @@ struct
             end
 
         in
-          (colorMain (graph, simplifyWorklist, spillWorklist, freezeWorklist, selectStack, activeMoves, worklistMoves, alias), [])
+          (colorMain (graph, simplifyWorklist, spillWorklist, freezeWorklist, coalescedNodes, selectStack, activeMoves, worklistMoves, alias), [])
         end
         
         
