@@ -32,20 +32,94 @@ struct
     let
       val interference_graph = IGraph.empty
       val (live_in, live_out) = Flow.livenessAnalysis flow_graph
-      val temp_to_node: Temp.temp IGraph.NodeMap.map = IGraph.NodeMap.empty
-      val node_to_temp: IGraph.node TempMap.map = TempMap.empty
+      val temp_to_node: IGraph.node TempMap.map = TempMap.empty
+      val node_to_temp: Temp.temp IGraph.NodeMap.map = IGraph.NodeMap.empty
+
+      fun map_tnode (ttn) =
+        (fn temp =>
+           (case TempMap.find (ttn, temp) of
+              SOME node => node
+            | NONE => IGraph.find_unused_node (interference_graph)))
+
+      fun map_gtemp (ntt) =
+        (fn node =>
+           (case IGraph.NodeMap.find (ntt, node) of
+              SOME temp => temp
+            | NONE => Temp.newtemp ()))
 
       (* TODO: write this monstrosity, use it in foldl_dfs *)
+      (* visits one flowgraph node, creates corresponding edges *)
       fun dfs_traversal
         ( fgraph: Flow.flowgraph
-        , live_out
+        , live_out: Temp.Set.set Flow.Graph.NodeMap.map
         , node: Flow.Graph.node
-        , IGRAPH {graph, tnode, gtemp, moves}
+        , igraph: igraph
         ) =
         let
-          val node_is_move = Flow.Graph.NodeMap.lookup (#ismove fgraph, node)
-          val neighbors = Flow.Graph.succ (#control fgraph, node)
-          val node_defs = Flow.Graph.NodeMap.lookup (#def fgraph, node)
+          val
+            { control
+            , def (* : Temp.temp list Flow.Graph.NodeMap.map *)
+            , use (* : Temp.temp list Flow.Graph.NodeMap.map *)
+            , ismove
+            } = fgraph
+          val node_is_move = Flow.Graph.NodeMap.lookup (ismove, node)
+
+          (* Lookup temp in temp-to-node map, if not found, insert. *)
+          (* temp -> igraph, node *)
+          fun find_or_make_inode (temp: Temp.temp) : (igraph * IGraph.node) =
+            let
+              val
+                IGRAPH
+                  { graph: IGraph.graph
+                  , tnode: Temp.temp -> IGraph.node
+                  , gtemp: IGraph.node -> Temp.temp
+                  , moves: (IGraph.node * IGraph.node) list
+                  } = igraph
+            in
+              case TempMap.find (temp_to_node, temp) of
+                SOME node => (igraph, node)
+              | NONE =>
+                  let
+                    val new_node = IGraph.find_unused_node graph
+                    val graph' = IGraph.addNode (graph, new_node)
+                    val tnode' = TempMap.insert (temp_to_node, temp, new_node)
+                    val gtemp' =
+                      IGraph.NodeMap.insert (node_to_temp, new_node, temp)
+                  in
+                    ( IGRAPH
+                        { graph = graph'
+                        , tnode = map_tnode (tnode')
+                        , gtemp = map_gtemp (gtemp')
+                        , moves = moves
+                        }
+                    , new_node
+                    )
+                  end
+            end
+
+          val flow_defs: Temp.temp list = Flow.Graph.NodeMap.lookup (def, node)
+          (* val inode_defs, igraph' *)
+          val flow_lives = Flow.Graph.NodeMap.lookup (live_out, node)
+
+          (* IGraph.graph * Igraph.node * Temp.Set.set * (IGraph.node *
+           * IGraph.node) list -> IGraph.graph, Moves *)
+          fun add_edge
+            (graph: IGraph.graph, dst: IGraph.node, src: IGraph.node, moves) =
+            if node_is_move then
+              ( IGraph.addEdge (graph, {from = src, to = dst})
+              , (src, dst) :: moves
+              )
+            else
+              (IGraph.addEdge (graph, {from = src, to = dst}), moves)
+
+          (* run add_edge on all nodes in a list *)
+          fun add_edges (graph, def_node, live_nodes, moves) =
+            foldl
+              (fn (live_node, (graph, moves)) =>
+                 add_edge (graph, def_node, live_node, moves)) (graph, moves)
+              live_nodes
+
+          val neighbors = Flow.Graph.succ (control, node)
         in
           ()
         end
@@ -60,14 +134,13 @@ struct
         , (fn (node: Graph.node) => [])
         )
     in
-      ( dfs_traversal
-          ( flow_graph
-          , Flow.livenessAnalysis flow_graph
-          , Flow.Graph.find_unused_node (#control flow_graph)
-          , #1 base_igraph
-          )
-      ; base_igraph
-      )
+      (* ( dfs_traversal *)
+      (*     ( flow_graph *)
+      (*     , Flow.livenessAnalysis flow_graph *)
+      (*     , Flow.Graph.find_unused_node (#control flow_graph) *)
+      (*     , #1 base_igraph *)
+      (*     ) *)
+      base_igraph
     end
 
   (* TODO: replace name with gtemp once implemented *)
