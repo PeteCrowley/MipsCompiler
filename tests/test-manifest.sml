@@ -78,12 +78,16 @@ struct
 
   fun instruction_selection (input, output) =
     let
+      fun sayTemp i = case Frame.getRegName i of
+                        SOME name => name
+                      | NONE => Temp.makestring i
+
       fun emitproc out (Frame.PROC {body, frame}) =
             let
               val stms = Canon.linearize body
               val stms' = Canon.traceSchedule (Canon.basicBlocks stms)
               val instrs = List.concat (map (MipsGen.codegen frame) stms')
-              val format0 = Assem.format (Temp.makestring)
+              val format0 = Assem.format (sayTemp)
             in
               app (fn i => TextIO.output (out, format0 i)) instrs
             end
@@ -196,6 +200,68 @@ struct
     end
     handle Fail msg => print ("Program raised Fail: " ^ msg)
 
+  fun regalloc (input, output) =
+    let
+                      
+      fun emitproc out (Frame.PROC {body, frame}) =
+            let
+              val stms = Canon.linearize body
+              val stms' = Canon.traceSchedule (Canon.basicBlocks stms)
+              val instrs = List.concat (map (MipsGen.codegen frame) stms')
+              val (newInstrs, regMap) = RegAlloc.alloc (instrs, frame)
+
+              fun sayTemp i = case IntBinaryMap.find (regMap, i) of
+                                SOME regName => regName
+                              | NONE => Temp.makestring i
+
+              fun printMap map =
+                let
+                  val items = IntBinaryMap.listItemsi map
+                  fun formatItem (temp, reg) =
+                    let
+                      val tempStr = Temp.makestring temp
+                    in
+                      "\t" ^ tempStr ^ " -> " ^ reg ^ "\n"
+                    end
+                in
+                  String.concat (List.map formatItem items)
+                end
+
+
+              val format0 = Assem.format (sayTemp)
+            in
+              (* app (fn i => TextIO.output (out, format0 i)) newInstrs *)
+              TextIO.output (out, printMap regMap)
+            end
+        | emitproc out (Frame.STRING (lab, s)) =
+            TextIO.output (out, Frame.string (lab, s))
+
+      val () = Translate.resetFrags ()
+      val () = Temp.reset ()
+      val absyn = Parse.parse input
+      val frags = Semant.transProg absyn
+      val stringFrags =
+        List.filter
+          (fn f =>
+             case f of
+               Frame.STRING _ => true
+             | _ => false) frags
+      val funcFrags =
+        List.filter
+          (fn f =>
+             case f of
+               Frame.PROC _ => true
+             | _ => false) frags
+
+      fun do_it () =
+        ( app (emitproc (TextIO.stdOut)) stringFrags
+        ; app (emitproc (TextIO.stdOut)) funcFrags
+        )
+    in
+      IOUtil.withOutputFile (output, do_it) ()
+    end
+    handle Fail msg => print ("Program raised Fail: " ^ msg)
+
   val allTests =
     [ { test_name = "echo"
       , test_dirs = ["appel-programs", "lexer-programs"]
@@ -225,6 +291,10 @@ struct
     , { test_name = "liveness"
       , test_dirs = ["selection-programs"]
       , test_fn = liveness
+      }
+    , { test_name = "regalloc"
+      , test_dirs = ["selection-programs"]
+      , test_fn = regalloc
       }
     ]
 end

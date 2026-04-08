@@ -53,6 +53,15 @@ struct
             end
 
           val (simplifyWorklist, spillWorklist, freezeWorklist, worklistMoves, moveList) = makeWorklists ()
+
+          fun printList [] = ""
+            | printList (x :: xs) = Temp.makestring (gtemp x) ^ " " ^ printList xs
+
+          val () = print (Liveness.IGraph.dbg_dump graph)
+          val () = print ("precolored: " ^ printList (NodeSet.toList precoloredNodes) ^ "\n")
+          val () = print ("simplify: " ^ printList (NodeSet.toList simplifyWorklist) ^ "\n")
+          val () = print ("spill: " ^ printList (NodeSet.toList spillWorklist) ^ "\n")
+          val () = print ("freeze: " ^ printList (NodeSet.toList freezeWorklist) ^ "\n")
           
           val spilledNodes = NodeSet.empty
           val coalescedNodes = NodeSet.empty
