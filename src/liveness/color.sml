@@ -14,7 +14,7 @@ struct
     end
     structure NodePairSet = RedBlackSetFn(NodePairOrd)
 
-    fun color {interference: Liveness.igraph, initial, spillCost, registers} = 
+    fun color {interference, initial, spillCost, registers} =
         let
           val K = List.length registers
           val Liveness.IGRAPH {graph, tnode, gtemp, moves} = interference
@@ -178,7 +178,7 @@ struct
                                   val aliasNode = getAlias adjNode
                                 in
                                   case NodeMap.find (colorMap, aliasNode) of
-                                    SOME color => List.filter (fn c => c <> color) openColors
+                                    SOME clr => List.filter (fn c => c <> clr) openColors
                                   | NONE => openColors
                                 end
 
