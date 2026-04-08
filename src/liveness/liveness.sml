@@ -129,8 +129,8 @@ struct
         , node: Flow.Graph.node
         ) : (Flow.flowgraph * Temp.Set.set Flow.Graph.NodeMap.map * igraph) =
         let
-          val dbg_print_node = print
-            (Flow.Graph.nodename (#control fgraph, node) ^ "\n")
+          (* val dbg_print_node = print *)
+          (*   (Flow.Graph.nodename (#control fgraph, node) ^ "\n") *)
           val
             { control
             , def (* : Temp.temp list Flow.Graph.NodeMap.map *)
@@ -144,7 +144,7 @@ struct
           fun find_or_make_inode (igraph_fm: igraph, temp: Temp.temp) :
             (igraph * IGraph.node) =
             let
-              val dbg_print_fm = print ("\t| " ^ Temp.makestring temp)
+              (* val dbg_print_fm = print ("\t| " ^ Temp.makestring temp) *)
               val
                 { graph: IGraph.graph
                 , temp_to_node: IGraph.node TempMap.map
@@ -154,7 +154,8 @@ struct
             in
               case TempMap.find (temp_to_node, temp) of
                 SOME node =>
-                  let val dbg_print_found = print (" found.\n")
+                  let
+                  (* val dbg_print_found = print (" found.\n") *)
                   in (igraph_fm, node)
                   end
               | NONE =>
@@ -164,7 +165,7 @@ struct
                     val ttn' = TempMap.insert (temp_to_node, temp, new_node)
                     val ntt' =
                       IGraph.NodeMap.insert (node_to_temp, new_node, temp)
-                    val dbg_print_make_new = print (" made.\n")
+                  (* val dbg_print_make_new = print (" made.\n") *)
                   in
                     ( { graph = graph'
                       , temp_to_node = ttn'
@@ -180,9 +181,9 @@ struct
           fun convert_temps (igraph_convert: igraph, temps: Temp.temp list) :
             (igraph * IGraph.node list) =
             let
-              val dbg_print_temps = print
-                ("converting temps: "
-                 ^ String.concatWith ", " (map Temp.makestring temps) ^ "\n")
+              (* val dbg_print_temps = print *)
+              (*   ("converting temps: " *)
+              (*    ^ String.concatWith ", " (map Temp.makestring temps) ^ "\n") *)
 
               fun conv_one (temp, (igraph_conv, nodes)) =
                 let
@@ -212,8 +213,8 @@ struct
               val (igraph', def_nodes) =
                 convert_temps (igraph_add, flow_defs_add)
               val (igraph'', live_nodes) = convert_temps (igraph', flow_lives)
-              val dbg_print_igraph'' = show
-                (TextIO.stdOut, (to_output_igraph igraph''))
+              (* val dbg_print_igraph'' = show *)
+              (*   (TextIO.stdOut, (to_output_igraph igraph'')) *)
               val
                 { graph: IGraph.graph
                 , temp_to_node: IGraph.node TempMap.map
@@ -234,26 +235,37 @@ struct
                 in
                   (live_nodes_single, graph', moves')
                 end
+
+              (* the old returned value *)
+              val (_ (*live nodes*), igraph_graph', moves') =
+                foldl single_def_edges (live_nodes, graph, moves) def_nodes
             in
-              foldl single_def_edges (live_nodes, graph, moves) def_nodes
+              { graph = igraph_graph'
+              , temp_to_node = temp_to_node
+              , node_to_temp = node_to_temp
+              , moves = moves'
+              }
             end
 
-          val (_, igraph_graph', moves') =
-            add_edges (flow_defs, flow_lives node, igraph)
+          (* val (_, igraph_graph', moves') = *)
+          (*   add_edges (flow_defs, flow_lives node, igraph) *)
 
-          val igraph_out =
-            { graph = igraph_graph'
-            , temp_to_node = #temp_to_node igraph
-            , node_to_temp = #node_to_temp igraph
-            , moves = moves'
-            }
+          (* so here's the problem. the maps are not getting passed through
+           * correctly?
+           * *)
+          val igraph_out = add_edges (flow_defs, flow_lives node, igraph)
+        (* { graph = igraph_graph' *)
+        (* , temp_to_node = #temp_to_node igraph *)
+        (* , node_to_temp = #node_to_temp igraph *)
+        (* , moves = moves' *)
+        (* } *)
 
-          val dbg_print_igraph_out =
-            ( print ("igraph_out:\n")
-            ; show (TextIO.stdOut, (to_output_igraph igraph_out))
-            )
+        (* val dbg_print_igraph_out = *)
+        (*   ( print ("igraph_out:\n") *)
+        (*   ; show (TextIO.stdOut, (to_output_igraph igraph_out)) *)
+        (*   ) *)
 
-          val dbg_final_print = print ("\n")
+        (* val dbg_final_print = print ("\n") *)
 
         in
           (fgraph, live_out_dfs, igraph_out)

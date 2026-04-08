@@ -264,7 +264,11 @@ struct
     in
       IOUtil.withOutputFile (output, do_it) ()
     end
-    handle Fail msg => print ("Program raised Fail: " ^ msg)
+    handle
+      Fail msg => print ("Program raised Fail: " ^ msg)
+    | NotFound =>
+        print ("Program raised NotFound: ") (* FIXME: probably in color*)
+
 
   val allTests =
     [ { test_name = "echo"
