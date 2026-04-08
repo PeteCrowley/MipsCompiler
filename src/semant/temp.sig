@@ -10,6 +10,7 @@ sig
   val namedlabel: string -> label
   val reset: unit -> unit
 
+  (* TODO: switch to exporting either Key or Set and Map (not both) *)
   structure Key: ORD_KEY where type ord_key = temp
   structure Set: ORD_SET where type Key.ord_key = temp
   structure Map: ORD_MAP where type Key.ord_key = temp
