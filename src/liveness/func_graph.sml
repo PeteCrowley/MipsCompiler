@@ -193,4 +193,34 @@ struct
     in
       foldl fold init roots
     end
+
+  fun dbg_dump (g: graph) =
+    let
+      val stringNodes =
+        let
+          fun nodename_better n = nodename (g, n)
+          val nodesList = NodeSet.toList (#nodes g)
+        in
+          String.concatWith ", " (map nodename_better nodesList)
+        end
+      val stringEdges =
+        let
+          val allEdges =
+            let
+              val edgeSets = NodeMap.listItemsi (#succ g)
+              fun unfoldEdgeSet (n, set) =
+                map (fn m => (n, m)) (NodeSet.toList set)
+              val edgeSetListSegments = map unfoldEdgeSet edgeSets
+            in
+              List.concat edgeSetListSegments
+            end
+          fun formatEdge (m, n) =
+            nodename (g, m) ^ "->" ^ nodename (g, n)
+          val formattedEdges = map formatEdge allEdges
+        in
+          String.concatWith ", " formattedEdges
+        end
+    in
+      "nodes: " ^ stringNodes ^ "\nedges: " ^ stringEdges ^ "\n"
+    end
 end
