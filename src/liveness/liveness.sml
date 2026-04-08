@@ -24,6 +24,8 @@ sig
                          -> output_igraph * (Flow.Graph.node -> Temp.temp list)
 
   val show: TextIO.outstream * output_igraph -> unit
+
+  val to_output_igraph: igraph -> output_igraph
 end =
 struct
   structure IGraph = MakeGraph()
@@ -46,6 +48,65 @@ struct
     , moves: (IGraph.node * IGraph.node) list
     }
 
+
+  fun to_output_igraph (igraph: igraph) =
+    let
+      val {graph, temp_to_node, node_to_temp, moves} = igraph
+
+      fun map_tnode ttn =
+        (fn temp =>
+           (case TempMap.find (ttn, temp) of
+              SOME node => node
+            | NONE => IGraph.find_unused_node graph))
+
+      fun map_gtemp ntt =
+        (fn node =>
+           (case IGraph.NodeMap.find (ntt, node) of
+              SOME temp => temp
+            | NONE => ~1))
+    in
+      IGRAPH
+        { graph = graph
+        , tnode = map_tnode temp_to_node
+        , gtemp = map_gtemp node_to_temp
+        , moves = moves
+        }
+    end
+
+  (* TODO: replace name with gtemp once implemented *)
+  fun show (outstream, IGRAPH {graph: IGraph.graph, tnode, gtemp, moves}) =
+    let
+      fun print_succ (graph: IGraph.graph, node: IGraph.node) =
+        IGraph.NodeSet.app
+          (fn n =>
+             TextIO.output (outstream, (IGraph.nodename (graph, n) ^ ", ")))
+          (IGraph.succ (graph, node))
+
+      fun print_node (graph: IGraph.graph, node: IGraph.node) =
+        ( TextIO.output (outstream, IGraph.nodename (graph, node) ^ "->")
+        ; print_succ (graph, node)
+        ; TextIO.output (outstream, "\n")
+        )
+
+      fun node_to_str (node: IGraph.node) =
+        "n" ^ IGraph.nodename (graph, node) ^ " : "
+        ^ Temp.makestring (gtemp node)
+
+      fun print_node_mappings () =
+        let
+          val node_strs = map node_to_str
+            (IGraph.NodeSet.toList (IGraph.nodes graph))
+          val all_nodes = String.concatWith "\n" node_strs
+        in
+          ( TextIO.output (outstream, all_nodes)
+          ; TextIO.output (outstream, "\n")
+          )
+        end
+    in
+      (* IGraph.NodeSet.app (fn n => print_node (graph, n)) (IGraph.nodes graph) *)
+      print_node_mappings ()
+    end
+
   fun interferenceGraph flow_graph =
     let
       val interference_graph = IGraph.empty
@@ -53,17 +114,6 @@ struct
       (* val temp_to_node: IGraph.node TempMap.map = TempMap.empty *)
       (* val node_to_temp: Temp.temp IGraph.NodeMap.map = IGraph.NodeMap.empty *)
 
-      fun map_tnode ttn =
-        (fn temp =>
-           (case TempMap.find (ttn, temp) of
-              SOME node => node
-            | NONE => IGraph.find_unused_node interference_graph))
-
-      fun map_gtemp ntt =
-        (fn node =>
-           (case IGraph.NodeMap.find (ntt, node) of
-              SOME temp => temp
-            | NONE => Temp.newtemp ()))
 
       (* FIXME: either def a TempSet using Temp.Key, or refactor TempMap *)
       fun flow_lives node =
@@ -79,6 +129,8 @@ struct
         , node: Flow.Graph.node
         ) : (Flow.flowgraph * Temp.Set.set Flow.Graph.NodeMap.map * igraph) =
         let
+          val dbg_print_node = print
+            (Flow.Graph.nodename (#control fgraph, node) ^ "\n")
           val
             { control
             , def (* : Temp.temp list Flow.Graph.NodeMap.map *)
@@ -92,6 +144,7 @@ struct
           fun find_or_make_inode (igraph_fm: igraph, temp: Temp.temp) :
             (igraph * IGraph.node) =
             let
+              val dbg_print_fm = print ("\t| " ^ Temp.makestring temp)
               val
                 { graph: IGraph.graph
                 , temp_to_node: IGraph.node TempMap.map
@@ -100,7 +153,10 @@ struct
                 } = igraph_fm
             in
               case TempMap.find (temp_to_node, temp) of
-                SOME node => (igraph_fm, node)
+                SOME node =>
+                  let val dbg_print_found = print (" found.\n")
+                  in (igraph_fm, node)
+                  end
               | NONE =>
                   let
                     val new_node = IGraph.find_unused_node graph
@@ -108,6 +164,7 @@ struct
                     val ttn' = TempMap.insert (temp_to_node, temp, new_node)
                     val ntt' =
                       IGraph.NodeMap.insert (node_to_temp, new_node, temp)
+                    val dbg_print_make_new = print (" made.\n")
                   in
                     ( { graph = graph'
                       , temp_to_node = ttn'
@@ -123,6 +180,10 @@ struct
           fun convert_temps (igraph_convert: igraph, temps: Temp.temp list) :
             (igraph * IGraph.node list) =
             let
+              val dbg_print_temps = print
+                ("converting temps: "
+                 ^ String.concatWith ", " (map Temp.makestring temps) ^ "\n")
+
               fun conv_one (temp, (igraph_conv, nodes)) =
                 let
                   val (igraph', node') = find_or_make_inode (igraph_conv, temp)
@@ -151,6 +212,8 @@ struct
               val (igraph', def_nodes) =
                 convert_temps (igraph_add, flow_defs_add)
               val (igraph'', live_nodes) = convert_temps (igraph', flow_lives)
+              val dbg_print_igraph'' = show
+                (TextIO.stdOut, (to_output_igraph igraph''))
               val
                 { graph: IGraph.graph
                 , temp_to_node: IGraph.node TempMap.map
@@ -185,6 +248,13 @@ struct
             , moves = moves'
             }
 
+          val dbg_print_igraph_out =
+            ( print ("igraph_out:\n")
+            ; show (TextIO.stdOut, (to_output_igraph igraph_out))
+            )
+
+          val dbg_final_print = print ("\n")
+
         in
           (fgraph, live_out_dfs, igraph_out)
         end
@@ -204,17 +274,6 @@ struct
       (* , (fn (node: Graph.node) => []) *)
       (* ) *)
 
-      fun to_output_igraph (igraph: igraph) =
-        let
-          val {graph, temp_to_node, node_to_temp, moves} = igraph
-        in
-          IGRAPH
-            { graph = graph
-            , tnode = map_tnode temp_to_node
-            , gtemp = map_gtemp node_to_temp
-            , moves = moves
-            }
-        end
 
       val (_ (*fgraph'*), _ (*live_out'*), igraph') =
         Flow.Graph.foldl_dfs dfs_traversal
@@ -225,22 +284,5 @@ struct
       (to_output_igraph igraph', flow_lives)
     end
 
-  (* TODO: replace name with gtemp once implemented *)
-  fun show (outstream, IGRAPH {graph: IGraph.graph, tnode, gtemp, moves}) =
-    let
-      fun print_succ (graph: IGraph.graph, node: IGraph.node) =
-        IGraph.NodeSet.app
-          (fn n =>
-             TextIO.output (outstream, (IGraph.nodename (graph, n) ^ ", ")))
-          (IGraph.succ (graph, node))
-
-      fun print_node (graph: IGraph.graph, node: IGraph.node) =
-        ( TextIO.output (outstream, IGraph.nodename (graph, node) ^ "->")
-        ; print_succ (graph, node)
-        ; TextIO.output (outstream, "\n")
-        )
-    in
-      IGraph.NodeSet.app (fn n => print_node (graph, n)) (IGraph.nodes graph)
-    end
 
 end

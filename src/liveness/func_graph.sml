@@ -196,6 +196,10 @@ struct
 
   fun dbg_dump (g: graph) =
     let
+      fun fmtSet set =
+        String.concatWith ", "
+          (map (fn n => nodename (g, n)) (NodeSet.toList set))
+
       val stringNodes =
         let
           fun nodename_better n = nodename (g, n)
@@ -220,7 +224,10 @@ struct
         in
           String.concatWith ", " formattedEdges
         end
+      val graph_sources = fmtSet (sources g)
+      val graph_sinks = fmtSet (sinks g)
     in
-      "nodes: " ^ stringNodes ^ "\nedges: " ^ stringEdges ^ "\n"
+      "nodes: " ^ stringNodes ^ "\nedges: " ^ stringEdges ^ "\nsources: "
+      ^ graph_sources ^ "\nsinks: " ^ graph_sinks ^ "\n"
     end
 end

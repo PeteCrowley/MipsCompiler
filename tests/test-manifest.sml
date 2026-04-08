@@ -78,9 +78,10 @@ struct
 
   fun instruction_selection (input, output) =
     let
-      fun sayTemp i = case Frame.getRegName i of
-                        SOME name => name
-                      | NONE => Temp.makestring i
+      fun sayTemp i =
+        case Frame.getRegName i of
+          SOME name => name
+        | NONE => Temp.makestring i
 
       fun emitproc out (Frame.PROC {body, frame}) =
             let
@@ -156,18 +157,20 @@ struct
                 let
                   fun formatNode node =
                     let
-                      val {control = _, def, use, ismove} = fgraph
+                      val {control, def, use, ismove} = fgraph
+                      val name = Flow.Graph.nodename (control, node)
                       val def = Flow.Graph.NodeMap.lookup (def, node)
                       val use = Flow.Graph.NodeMap.lookup (use, node)
                       val ismove = Flow.Graph.NodeMap.lookup (ismove, node)
 
                       val def = map Temp.makestring def
                       val use = map Temp.makestring use
+                      val nameLine = "\t| name: " ^ name
                       val defsLine = "\t| defs: " ^ String.concatWith ", " def
                       val usesLine = "\t| uses: " ^ String.concatWith ", " use
                     in
-                      defsLine ^ "\n" ^ usesLine ^ "\n" ^ "\t| ismove: "
-                      ^ Bool.toString ismove ^ "\n"
+                      nameLine ^ "\n" ^ defsLine ^ "\n" ^ usesLine ^ "\n"
+                      ^ "\t| ismove: " ^ Bool.toString ismove ^ "\n"
                     end
                   fun formatLiveness (liveIn, liveOut) =
                     let
@@ -202,26 +205,25 @@ struct
 
   fun regalloc (input, output) =
     let
-                      
+
       fun emitproc out (Frame.PROC {body, frame}) =
             let
               val stms = Canon.linearize body
               val stms' = Canon.traceSchedule (Canon.basicBlocks stms)
               val instrs = List.concat (map (MipsGen.codegen frame) stms')
-              val (newInstrs, regMap) = RegAlloc.alloc (instrs, frame)
+              val (newInstrs, regMap, igraph) = RegAlloc.alloc (instrs, frame)
 
-              fun sayTemp i = case IntBinaryMap.find (regMap, i) of
-                                SOME regName => regName
-                              | NONE => Temp.makestring i
+              fun sayTemp i =
+                case IntBinaryMap.find (regMap, i) of
+                  SOME regName => regName
+                | NONE => Temp.makestring i
 
               fun printMap map =
                 let
                   val items = IntBinaryMap.listItemsi map
                   fun formatItem (temp, reg) =
-                    let
-                      val tempStr = Temp.makestring temp
-                    in
-                      "\t" ^ tempStr ^ " -> " ^ reg ^ "\n"
+                    let val tempStr = Temp.makestring temp
+                    in "\t" ^ tempStr ^ " -> " ^ reg ^ "\n"
                     end
                 in
                   String.concat (List.map formatItem items)
@@ -231,7 +233,9 @@ struct
               val format0 = Assem.format (sayTemp)
             in
               (* app (fn i => TextIO.output (out, format0 i)) newInstrs *)
-              TextIO.output (out, printMap regMap)
+              ( Liveness.show (out, igraph)
+              ; TextIO.output (out, printMap regMap)
+              )
             end
         | emitproc out (Frame.STRING (lab, s)) =
             TextIO.output (out, Frame.string (lab, s))
@@ -289,7 +293,7 @@ struct
       , test_fn = instruction_selection
       }
     , { test_name = "liveness"
-      , test_dirs = ["selection-programs"]
+      , test_dirs = ["selection-programs", "appel-programs"]
       , test_fn = liveness
       }
     , { test_name = "regalloc"
