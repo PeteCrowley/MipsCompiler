@@ -41,7 +41,8 @@ struct
     let
       val absyn = Parse.parse input
       (* val outputFile = TextIO.openOut output *)
-      fun do_it () = (Semant.transProg absyn; ())
+      fun do_it () =
+        (Semant.transProg absyn; ())
     in
       IOUtil.withOutputFile (output, do_it) ()
     (* PrintExpty.print (outputFile, expty); *)
@@ -64,8 +65,8 @@ struct
 
   fun ir (input, output) =
     let
-      val () = Translate.resetFrags()
-      val () = Temp.reset()
+      val () = Translate.resetFrags ()
+      val () = Temp.reset ()
       val absyn = Parse.parse input
       fun do_it () = Semant.printIrTree absyn
     in
@@ -75,28 +76,121 @@ struct
 
   structure Frame = MipsFrame
 
-  fun instruction_selection(input, output) = 
+  fun instruction_selection (input, output) =
     let
       fun emitproc out (Frame.PROC {body, frame}) =
-        let
-            val stms = Canon.linearize body
-            val stms' = Canon.traceSchedule (Canon.basicBlocks stms)
-            val instrs = List.concat (map (MipsGen.codegen frame) stms')
-            val format0 = Assem.format (Temp.makestring)
-          in
-            app (fn i => TextIO.output (out, format0 i)) instrs
-          end
-      | emitproc out (Frame.STRING (lab, s)) =
-          TextIO.output (out, Frame.string (lab, s))
+            let
+              val stms = Canon.linearize body
+              val stms' = Canon.traceSchedule (Canon.basicBlocks stms)
+              val instrs = List.concat (map (MipsGen.codegen frame) stms')
+              val format0 = Assem.format (Temp.makestring)
+            in
+              app (fn i => TextIO.output (out, format0 i)) instrs
+            end
+        | emitproc out (Frame.STRING (lab, s)) =
+            TextIO.output (out, Frame.string (lab, s))
 
-      val () = Translate.resetFrags()
-      val () = Temp.reset()
+      val () = Translate.resetFrags ()
+      val () = Temp.reset ()
       val absyn = Parse.parse input
       val frags = Semant.transProg absyn
-      val stringFrags = List.filter (fn f => case f of Frame.STRING _ => true | _ => false) frags
-      val funcFrags = List.filter (fn f => case f of Frame.PROC _ => true | _ => false) frags
+      val stringFrags =
+        List.filter
+          (fn f =>
+             case f of
+               Frame.STRING _ => true
+             | _ => false) frags
+      val funcFrags =
+        List.filter
+          (fn f =>
+             case f of
+               Frame.PROC _ => true
+             | _ => false) frags
 
-      fun do_it () = (app (emitproc (TextIO.stdOut)) stringFrags; app (emitproc (TextIO.stdOut)) funcFrags)
+      fun do_it () =
+        ( app (emitproc (TextIO.stdOut)) stringFrags
+        ; app (emitproc (TextIO.stdOut)) funcFrags
+        )
+    in
+      IOUtil.withOutputFile (output, do_it) ()
+    end
+    handle Fail msg => print ("Program raised Fail: " ^ msg)
+
+  fun liveness (input, output) =
+    let
+      fun emitproc out (Frame.PROC {body, frame}) =
+            let
+              val stms = Canon.linearize body
+              val stms' = Canon.traceSchedule (Canon.basicBlocks stms)
+              val instrs = List.concat (map (MipsGen.codegen frame) stms')
+
+              (* Liveness analysis *)
+              val (fgraph, instrNodes) = MakeGraph.instrs2graph instrs
+              val (liveIn, liveOut) = Flow.livenessAnalysis fgraph
+
+              (* Debug print the flow graph *)
+              val _ = TextIO.output (out, Flow.Graph.dbg_dump (#control fgraph))
+
+              val format0 = Assem.format (Temp.makestring)
+
+              (* Package the flow node and liveness data with the instruction *)
+              val instrsAndLiveness =
+                let
+                  val instrsAndNodes = ListPair.zip (instrs, instrNodes)
+                  fun getLiveness (instr, node) =
+                    let
+                      val liveIn = Flow.Graph.NodeMap.lookup (liveIn, node)
+                      val liveOut = Flow.Graph.NodeMap.lookup (liveOut, node)
+                    in
+                      {instr = instr, node = node, liveness = (liveIn, liveOut)}
+                    end
+                in
+                  List.map getLiveness instrsAndNodes
+                end
+
+              fun printLine line =
+                let
+                  fun formatNode node =
+                    let
+                      val {control = _, def, use, ismove} = fgraph
+                      val def = Flow.Graph.NodeMap.lookup (def, node)
+                      val use = Flow.Graph.NodeMap.lookup (use, node)
+                      val ismove = Flow.Graph.NodeMap.lookup (ismove, node)
+
+                      val def = map Temp.makestring def
+                      val use = map Temp.makestring use
+                      val defsLine = "\t| defs: " ^ String.concatWith ", " def
+                      val usesLine = "\t| uses: " ^ String.concatWith ", " use
+                    in
+                      defsLine ^ "\n" ^ usesLine ^ "\n" ^ "\t| ismove: "
+                      ^ Bool.toString ismove ^ "\n"
+                    end
+                  fun formatLiveness (liveIn, liveOut) =
+                    let
+                      fun fmtSet set =
+                        String.concatWith ", "
+                          (map Temp.makestring (Temp.Set.toList set))
+                    in
+                      "\t| live-in: " ^ fmtSet liveIn ^ "\n\t| live-out: "
+                      ^ fmtSet liveOut ^ "\n"
+                    end
+                  val {instr, node, liveness} = line
+                in
+                  format0 instr ^ formatNode node ^ formatLiveness liveness
+                end
+            in
+              app (fn i => TextIO.output (out, printLine i)) instrsAndLiveness
+            end
+        | emitproc out (Frame.STRING (lab, s)) =
+            TextIO.output (out, Frame.string (lab, s))
+
+      val () = Translate.resetFrags ()
+      val () = Temp.reset ()
+      val absyn = Parse.parse input
+      val frags = Semant.transProg absyn
+
+      fun do_it () =
+        app (emitproc TextIO.stdOut) frags
     in
       IOUtil.withOutputFile (output, do_it) ()
     end
@@ -120,7 +214,17 @@ struct
       , test_fn = typecheck
       }
     , {test_name = "escape", test_dirs = ["escape-programs"], test_fn = escape}
-    , {test_name = "ir", test_dirs = ["ir-programs", "appel-programs"], test_fn = ir}
-    , {test_name = "selection", test_dirs = ["selection-programs"], test_fn = instruction_selection}
+    , { test_name = "ir"
+      , test_dirs = ["ir-programs", "appel-programs"]
+      , test_fn = ir
+      }
+    , { test_name = "selection"
+      , test_dirs = ["selection-programs"]
+      , test_fn = instruction_selection
+      }
+    , { test_name = "liveness"
+      , test_dirs = ["selection-programs"]
+      , test_fn = liveness
+      }
     ]
 end

@@ -34,9 +34,10 @@ struct
               (* Compute liveIn for this node *)
               (* liveIn = liveOut - defs + uses *)
               val nodeDefs = Graph.NodeMap.lookup (def, node)
-              val generated = Temp.Set.fromList nodeDefs
               val nodeUses = Graph.NodeMap.lookup (use, node)
-              val killed = Temp.Set.fromList nodeUses
+
+              val generated = Temp.Set.fromList nodeUses
+              val killed = Temp.Set.fromList nodeDefs
               val liveOutMinusKilled = Temp.Set.difference (nodeLiveOut, killed)
               val nodeLiveIn = Temp.Set.union (generated, liveOutMinusKilled)
               val liveIn = Graph.NodeMap.insert (liveIn, node, nodeLiveIn)

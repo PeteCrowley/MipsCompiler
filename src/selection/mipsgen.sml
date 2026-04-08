@@ -248,41 +248,49 @@ struct
                   }))
             end
 
-      and munchArgs (idx, []) = []
-        | munchArgs (idx, arg :: args) =
-            let
-              val srctemp = munchExp arg
-              fun moveToArgReg (idx) =
+      and munchArgs (idx, args) =
+        let
+          fun munchArgsRec (idx, [], acc) = acc
+            | munchArgsRec (idx, arg :: args, acc) =
                 let
-                  val argtemp = List.nth (MipsFrame.argregs, idx)
+                  val srctemp = munchExp arg
+                  fun moveToArgReg (idx) =
+                    let
+                      val argtemp = List.nth (MipsFrame.argregs, idx)
+                      val _ = emit
+                        (Assem.MOVE
+                           { assem = "    move `d0, `s0\n"
+                           , src = srctemp
+                           , dst = argtemp
+                           })
+                      (* Argument register marked as used in the CALL isntruction *)
+                      val acc = argtemp :: acc
+                    in
+                      munchArgsRec (idx + 1, args, acc)
+                    end
+                  fun moveToStack (idx) =
+                    let
+                      val argNumInStack = idx - MipsFrame.argRegisterCount
+                      val offset = argNumInStack * MipsFrame.wordsize
+                      val sp = MipsFrame.SP
+                      val _ = emit (Assem.OPER
+                        { assem =
+                            "    sw `s0, " ^ betterIntToString offset
+                            ^ "(`s1)\n"
+                        , src = [srctemp, sp]
+                        , dst = []
+                        , jump = NONE
+                        })
+                    in
+                      munchArgsRec (idx + 1, args, acc)
+                    end
                 in
-                  emit
-                    (Assem.MOVE
-                       { assem = "    move `d0, `s0\n"
-                       , src = srctemp
-                       , dst = argtemp
-                       })
+                  if idx < MipsFrame.argRegisterCount then moveToArgReg idx
+                  else moveToStack idx
                 end
-              fun moveToStack (idx) =
-                let
-                  val argNumInStack = idx - MipsFrame.argRegisterCount
-                  val offset = argNumInStack * MipsFrame.wordsize
-                  val sp = MipsFrame.SP
-                in
-                  emit (Assem.OPER
-                    { assem =
-                        "    sw `s0, " ^ betterIntToString offset ^ "(`s1)\n"
-                    , src = [srctemp, sp]
-                    , dst = []
-                    , jump = NONE
-                    })
-                end
-              val munch =
-                if idx < MipsFrame.argRegisterCount then moveToArgReg idx
-                else moveToStack idx
-            in
-              srctemp :: munchArgs (idx + 1, args)
-            end
+        in
+          munchArgsRec (idx, args, [])
+        end
 
 
       (* Actually munch the provided statement *)

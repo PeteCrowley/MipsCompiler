@@ -37,7 +37,11 @@ struct
                 | Assem.LABEL {assem = _, lab} =>
                     let
                       val control = Flow.Graph.addNode (control, node)
+                      val def = Flow.Graph.NodeMap.insert (def, node, [])
+                      val use = Flow.Graph.NodeMap.insert (use, node, [])
                       val labelMap = Symbol.enter (labelMap, lab, node)
+                      val ismove =
+                        Flow.Graph.NodeMap.insert (ismove, node, false)
                     in
                       ( { control = control
                         , def = def
@@ -54,7 +58,7 @@ struct
                       val def = Flow.Graph.NodeMap.insert (def, node, [dst])
                       val use = Flow.Graph.NodeMap.insert (use, node, [src])
                       val ismove =
-                        Flow.Graph.NodeMap.insert (ismove, node, false)
+                        Flow.Graph.NodeMap.insert (ismove, node, true)
                     in
                       ( { control = control
                         , def = def
@@ -71,12 +75,13 @@ struct
 
               (* If jump=NONE and there's a following node, add an edge for
                * fall-through from previous node *)
+              val {control, def, use, ismove} = graph
               val graph =
                 case (nodeJumps, jump) of
                   ((nextNode, _) :: _, NONE) =>
                     { control =
                         Flow.Graph.addEdge
-                          (#control graph, {from = node, to = nextNode})
+                          (control, {from = node, to = nextNode})
                     , def = def
                     , use = use
                     , ismove = ismove

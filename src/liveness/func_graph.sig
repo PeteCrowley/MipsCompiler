@@ -26,4 +26,6 @@ sig
 
   val fold_dfs: (('a * node) -> 'a) -> node -> 'a -> graph -> 'a
   val foldl_dfs: (('a * node) -> 'a) -> node list -> 'a -> graph -> 'a
+
+  val dbg_dump: graph -> string
 end
