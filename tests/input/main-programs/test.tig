@@ -1,0 +1,6 @@
+let
+    function min(s1: string, s2: string) : string = 
+        if s1 < s2 then s1 else s2
+in
+    print(min("hello", "z"))
+end

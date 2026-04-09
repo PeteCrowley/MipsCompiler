@@ -797,6 +797,8 @@ strcmp_loop:
   lb $t0, 0($a0)
   lb $t1, 0($a1)
 
+  sub $v0, $t0, $t1
+
   # If the characters differ, we are done looping 
   bne $t0, $t1, _done_with_strcmp_loop
 

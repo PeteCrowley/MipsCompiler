@@ -1,0 +1,89 @@
+let
+    type player = {name: string, college: string, team: string, draft_position: int, next: player}
+    var head: player := nil
+
+    function intToString(n:int):string =
+    let
+        function digitToString(d:int):string =
+            chr(ord("0") + d)
+
+        function absToString(x:int):string =
+            if x < 10 then
+                digitToString(x)
+            else
+                concat(
+                    absToString(x / 10),
+                    digitToString(x - (x / 10) * 10)
+                )
+    in
+        if n = 0 then
+            "0"
+        else if n < 0 then
+            concat("-", absToString(0 - n))
+        else
+            absToString(n)
+    end
+
+    function printPlayer(p: player) = 
+        (print(p.college); print(": "); print(p.name); print(", "); print(intToString(p.draft_position)); print(", "); print(p.team); print("\n"))
+
+    function printList(p: player) =
+        if p = nil then ()
+        else (printPlayer(p); printList(p.next))
+
+    function compare(p1: player, p2: player) : int =
+        if p2 = nil then 1
+        else if p1.college < p2.college then 1
+        else if p1.college > p2.college then 0
+        else if p1.name < p2.name then 0
+        else if p1.draft_position <= p2.draft_position then 1
+        else 0
+
+    function insert(p: player) =
+        if compare(p, head) = 1 then
+            head := player{name=p.name, college=p.college, team=p.team, draft_position=p.draft_position, next=head}
+        else
+            let var current := head
+            in (while current.next <> nil & compare(p, current.next) = 0 do
+                current := current.next; current.next := player{name=p.name, college=p.college, team=p.team, draft_position=p.draft_position, next=current.next})
+            end
+
+    function readToken() : string =
+        let
+            var buffer := getchar()
+            var result := ""
+        in
+            (while buffer = " " | buffer = "\n" | buffer = "\t" do
+                buffer := getchar();
+             while buffer <> " " & buffer <> "\n" & buffer <> "\t" do
+                (result := concat(result, buffer); buffer := getchar());
+             result)
+        end
+
+    function main() =
+        let
+            var index := 1
+            var done := 0
+        in
+            (while done = 0 do
+                let
+                    var name := readToken()
+                in
+                    if name = "DONE" then
+                        done := 1
+                    else
+                        let
+                            var school := readToken()
+                            var team := readToken()
+                            var p := player{name=name, college=school, team=team, draft_position=index, next=nil}
+                        in
+                                (insert(p);
+                             index := index + 1)
+                        end
+                end;
+             printList(head))
+        end
+
+in
+    main()
+end
