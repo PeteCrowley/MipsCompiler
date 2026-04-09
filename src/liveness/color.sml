@@ -39,14 +39,15 @@ struct
                 fun makeListHelper (node, (accSimp, accSpill, accFreeze, accMoves, accMoveMap)) =
                     let
                       val movesInvolvedWith = NodePairSet.fromList (List.filter (fn (u, v) => u = node orelse v = node) moves)
+                      val (newMoves, newMoveMap) = if not (NodePairSet.isEmpty movesInvolvedWith) then (NodePairSet.union (accMoves, movesInvolvedWith), NodeMap.insert (accMoveMap, node, movesInvolvedWith)) else (accMoves, accMoveMap)
 
                     in
-                      if degree (node, graph) >= K then (accSimp, NodeSet.add (accSpill, node), accFreeze, accMoves, accMoveMap)
+                      if degree (node, graph) >= K then (accSimp, NodeSet.add (accSpill, node), accFreeze, newMoves, newMoveMap)
                       else if not (NodePairSet.isEmpty movesInvolvedWith) then (accSimp, accSpill, 
                                                                             NodeSet.add (accFreeze, node), 
-                                                                            NodePairSet.union (accMoves, movesInvolvedWith), 
-                                                                            NodeMap.insert (accMoveMap, node, movesInvolvedWith))
-                      else (NodeSet.add (accSimp, node), accSpill, accFreeze, accMoves, accMoveMap)
+                                                                            newMoves, 
+                                                                            newMoveMap)
+                      else (NodeSet.add (accSimp, node), accSpill, accFreeze, newMoves, newMoveMap)
                     end
               val nonPrecoloredNodes = NodeSet.filter (fn node => not (NodeSet.member (precoloredNodes, node))) (Liveness.IGraph.nodes graph) 
 
@@ -55,14 +56,35 @@ struct
             end
 
           val (simplifyWl, spillWl, freezeWl, wlMoves, moveList) = makeWorklists ()
+          fun printList [] = ""
+            | printList (x :: xs) = Liveness.IGraph.dbg_nodename x ^ " " ^ printList xs
 
           fun colorMain (igraph, simplifyWorklist, spillWorklist, freezeWorklist, coalescedNodes, selectStack, activeMoves, worklistMoves, alias) =
             let
-                fun nodeMoves (node, activeMovs) = case NodeMap.find (moveList, node) of
-                    SOME movs => NodePairSet.intersection (movs, NodePairSet.union (activeMovs, worklistMoves))
-                    | NONE => NodePairSet.empty
+                fun nodeMoves (node, activeMovs, worklistMovs) =
+                    let
+                        val moves =
+                          case NodeMap.find (moveList, node) of
+                            SOME movs => NodePairSet.intersection (movs, NodePairSet.union (activeMovs, worklistMovs))
+                          | NONE => NodePairSet.empty
+                        val () =
+                          print
+                            ("nodeMoves(" ^ Liveness.IGraph.dbg_nodename node ^ ") -> "
+                             ^ Int.toString (NodePairSet.numItems moves) ^ "\n")
+                    in
+                        moves
+                    end
 
-                fun isMoveRelated (node, activeMovs) = not (NodePairSet.isEmpty (nodeMoves (node, activeMovs)))
+                fun isMoveRelated (node, activeMovs, worklistMovs) =
+                    let
+                        val related = not (NodePairSet.isEmpty (nodeMoves (node, activeMovs, worklistMovs)))
+                        val () =
+                          print
+                            ("isMoveRelated(" ^ Liveness.IGraph.dbg_nodename node ^ ") -> "
+                             ^ Bool.toString related ^ "\n")
+                    in
+                        related
+                    end
 
             
                 fun removeNodeFromGraph node = 
@@ -71,13 +93,15 @@ struct
 
                         fun enableMoves nodes = 
                             let
+                                
                                 fun enableMove (m, (accActive, accWorklist)) =
-                                    if NodePairSet.member (activeMoves, m) then (NodePairSet.delete (accActive, m), NodePairSet.add (accWorklist, m))
+                                    if NodePairSet.member (accActive, m) then (NodePairSet.delete (accActive, m), NodePairSet.add (accWorklist, m))
                                     else (accActive, accWorklist)
 
                                 fun enableMovesForNode (adjNode, (accActive, accWorklist)) =
                                     let
-                                        val moves = nodeMoves (adjNode, activeMoves)
+                                        val () = print ("enabling moves for node " ^ Liveness.IGraph.dbg_nodename adjNode ^ "\n")
+                                        val moves = nodeMoves (adjNode, accActive, accWorklist)
                                     in
                                         NodePairSet.foldl enableMove (accActive, accWorklist) moves
                                     end
@@ -87,13 +111,20 @@ struct
 
                         fun updateWorklist (adjNode, (simplify, spill, freeze)) =
                             if degree(adjNode, igraph) = K andalso not (NodeSet.member (precoloredNodes, adjNode)) then
-                                (enableMoves (NodeSet.union(NodeSet.singleton adjNode, Liveness.IGraph.adj (igraph, adjNode)));
-                                if isMoveRelated (adjNode, activeMoves)
-                                    then (NodeSet.add (simplify, adjNode), NodeSet.delete (spill, adjNode), freeze)
-                                else (NodeSet.add (simplify, adjNode), NodeSet.delete (spill, adjNode), freeze))
+                              let
+                                val () = print ("node " ^ Liveness.IGraph.dbg_nodename adjNode ^ " now has degree " ^ Int.toString (degree (adjNode, igraph)) ^ "\n")
+                                val (newActive, newWorklist) = enableMoves (NodeSet.union(NodeSet.singleton adjNode, Liveness.IGraph.adj (igraph, adjNode)))
+                                val () = print ("enabled moves for " ^ Liveness.IGraph.dbg_nodename adjNode ^ "\n")
+                              in
+                                if isMoveRelated (adjNode, newActive, newWorklist)
+                                    then (simplify, NodeSet.delete (spill, adjNode), NodeSet.add(freeze, adjNode))
+                                else (NodeSet.add (simplify, adjNode), NodeSet.delete (spill, adjNode), freeze)
+                              end
                             else (simplify, spill, freeze)
-
                         val (newSimplify, newSpill, newFreeze) = NodeSet.foldl updateWorklist (simplifyWorklist, spillWorklist, freezeWorklist) adjNodes
+                        val () = print ("Updated freeze worklist: " ^ printList (NodeSet.toList newFreeze) ^ "\n")
+                        val () = print ("Updated spill worklist: " ^ printList (NodeSet.toList newSpill) ^ "\n")
+                        val () = print ("Updated simplify worklist: " ^ printList (NodeSet.toList newSimplify) ^ "\n")
                         val newGraph = Liveness.IGraph.rmNode (igraph, node)
 
                     in
@@ -116,9 +147,11 @@ struct
 
                 fun coalesce () =
                     let
+                        val () = print ("freeze worklist: " ^ printList (NodeSet.toList freezeWorklist) ^ "\n")
                         val (x, y) = NodePairSet.minItem worklistMoves
                         val (alx, aly) = (getAlias x, getAlias y)
                         val (u, v) = if NodeSet.member (precoloredNodes, aly) then (aly, alx) else (alx, aly)
+                        val () = print ("attempting to coalesce " ^ Liveness.IGraph.dbg_nodename u ^ " and " ^ Liveness.IGraph.dbg_nodename v ^ "\n")
                         val newWorklistMoves = NodePairSet.delete (worklistMoves, (x, y))
                         (* TODO: will update these later to actually coalesce stuff but will just say we can't do any for now*)
                         val (newSimplify, newFreeze, newActiveMoves) = (simplifyWorklist, freezeWorklist, NodePairSet.add (activeMoves, (x, y)))
@@ -131,8 +164,14 @@ struct
                       fun freezeMove ((x, y), (simpAcc, freezeAcc, activeMovesAcc)) = 
                         let
                           val v = if getAlias y = getAlias u then getAlias x else getAlias y
+                          val () = print ("freezing move (" ^ Liveness.IGraph.dbg_nodename x ^ ", " ^ Liveness.IGraph.dbg_nodename y ^ ")\n")
                           val newActiveMoves = NodePairSet.delete (activeMovesAcc, (x, y))
-                          val (newFreeze, newSimplify) = if not (NodeSet.member (precoloredNodes, v)) andalso not (isMoveRelated (v, activeMovesAcc)) andalso degree (v, igraph) < K then (NodeSet.delete (freezeAcc, v), NodeSet.add (simpAcc, v))
+                          val () = print ("spill worklist before freezing moves: " ^ printList (NodeSet.toList spillWorklist) ^ "\n")
+                          val () = print ("simplify worklist before freezing moves: " ^ printList (NodeSet.toList simpAcc) ^ "\n")
+                          val () = print ("freeze worklist before freezing moves: " ^ printList (NodeSet.toList freezeAcc) ^ "\n")
+                          val () = print ("v : " ^ Liveness.IGraph.dbg_nodename v ^ "\n")
+                          val () = print ("degree of v: " ^ Int.toString (degree (v, igraph)) ^ "\n")
+                          val (newFreeze, newSimplify) = if not (NodeSet.member (precoloredNodes, v)) andalso not (isMoveRelated (v, activeMovesAcc, worklistMoves)) andalso degree (v, igraph) < K then (NodeSet.delete (freezeAcc, v), NodeSet.add (simpAcc, v))
                                                         else (freezeAcc, simpAcc)
                         in
                           (newSimplify, newFreeze, newActiveMoves)
@@ -149,7 +188,9 @@ struct
                 fun freeze () =
                     let
                       val u = NodeSet.minItem freezeWorklist
+                      val () = print ("freezing node " ^ Temp.makestring (gtemp u) ^ "\n")
                       val (newSimplify, newFreeze, newActiveMoves) = freezeMoves u
+                      val () = print ("simplify worklist after freezing moves\n")
                       val newFreezeWorklist = NodeSet.delete (newFreeze, u)
                       val newSimplifyWorkList = NodeSet.add (newSimplify, u)
                     in
@@ -203,9 +244,6 @@ struct
                 else if not (NodeSet.isEmpty freezeWorklist) then freeze ()
                 else assignColors ()
             end
-
-          fun printList [] = ""
-            | printList (x :: xs) = Temp.makestring (gtemp x) ^ " " ^ printList xs
 
           val () = print (Liveness.IGraph.dbg_dump graph)
           val () = print ("precolored: " ^ printList (NodeSet.toList precoloredNodes) ^ "\n")

@@ -822,4 +822,54 @@ printf:
 exit:
 	li $v0, 10
 	syscall
+
+.data
+    .align 4
+boundsCheckErrorMsg:
+    .asciiz "Array index out of bounds\n"
+# a0 = size of array
+# a1 is index to check
+tig_boundsCheck:
+    blt $a1, $zero, _bounds_error
+    blt $a1, $a0, _end_tig_boundsCheck
+
+_bounds_error:
+    la $a0, boundsCheckErrorMsg
+    li $v0, 4
+    syscall
+    li $a0, 1
+    la $t9, exit
+    jal $ra, $t9
+
+_end_tig_boundsCheck:
+    j $ra
+
+
+# Compares two strings alphabetically (From 250)
+# Registers:
+# - $a0 (argument): Pointer to the first input, moved as we loop
+# - $a1 (argument): Pointer to the second input, moved as we loop
+# - $t0: Current character from 0($a0)
+# - $t1: Current character from 0($a1)
+# - $v0 (return): =0 if strings are equal, <0 if $a0 < $a1, >0 if $a0 > $a1 
+# Leaf function, so using caller-saved to avoid needing to save any registers 
+strcmp:
+  # Load current characer from the string
+  # (In addition to being the start of the function, this is also a loop) 
+  lb $t0, 0($a0)
+  lb $t1, 0($a1)
+
+  # If the characters differ, we are done looping 
+  bne $t0, $t1, done_with_strcmp_loop
+
+  # Otherwise, increment and go back to the start, unless we’ve reached NULL 
+  addi $a0, $a0, 1
+  addi $a1, $a1, 1
+  bnez $t0, strcmp
+
+  # If characters differ or we’ve reached the end, return 
+  done_with_strcmp_loop:
+  sub $v0, $t0, $t1
+  jr $ra
+
 	

@@ -341,20 +341,24 @@ struct
 
   fun arrayExp (size, init) =
     let
-      val sizeExp = unEx size
+      val sizeExp = Tree.BINOP(Tree.PLUS, unEx size, Tree.CONST 1) (* add one word for array length *)
       val initExp = unEx init
+      val t = Temp.newtemp ()
     in
-      Ex (Frame.externalCall ("tig_initArray", [sizeExp, initExp]))
+      Ex (Tree.ESEQ(seq[Tree.MOVE(Tree.TEMP t, Frame.externalCall ("tig_initArray", [sizeExp, initExp])),
+         Tree.MOVE(Tree.MEM (Tree.TEMP t), unEx size)
+      ], Tree.BINOP(Tree.PLUS, Tree.TEMP t, Tree.CONST Frame.wordsize))) (* return address of first array element *)
     end
 
   fun arrayAcessExp (arr, index) =
     let
       val arrExp = unEx arr
       val indexExp = unEx index
+      val sizeExp = Tree.MEM (Tree.BINOP(Tree.PLUS, arrExp, Tree.CONST (~Frame.wordsize))) (* array length is stored at offset -1 *)
     in
       Ex
         (Tree.ESEQ
-           ( Tree.EXP (Frame.externalCall ("boundsCheck", [arrExp, indexExp]))
+           ( Tree.EXP (Frame.externalCall ("tig_boundsCheck", [sizeExp, indexExp]))
            , Tree.MEM (Tree.BINOP
                ( Tree.PLUS
                , arrExp

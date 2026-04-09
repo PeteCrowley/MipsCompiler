@@ -194,6 +194,8 @@ struct
       foldl fold init roots
     end
 
+  fun dbg_nodename n = Int.toString n
+
   fun dbg_dump (g: graph) =
     let
       fun fmtSet set =
