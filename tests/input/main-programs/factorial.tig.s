@@ -9,37 +9,59 @@ L107: .word 1
 tig_main:
     sw $fp, -4($sp)
     move $fp, $sp
-    addi $t0, $sp, -12
+    addi $t0, $sp, -44
     move $sp, $t0
     sw $ra, -8($fp)
-    sw $a0, -12($fp)
-    move $t1, $fp
+    sw $s0, -12($fp)
+    sw $s1, -16($fp)
+    sw $s2, -20($fp)
+    sw $s3, -24($fp)
+    sw $s4, -28($fp)
+    sw $s5, -32($fp)
+    sw $s6, -36($fp)
+    sw $s7, -40($fp)
+    sw $a0, -44($fp)
+    move $s0, $fp
     move $a0, $fp
     li $t0, 10
     move $a1, $t0
     jal L100
     move $t0, $v0
-    move $a0, $t1
+    move $a0, $s0
     move $a1, $t0
     jal L101
     move $t0, $v0
     move $a0, $t0
     jal tig_print
     move $v0, $v0
-    lw $t0, -8($fp)
-    move $ra, $t0
+    lw $s0, -12($fp)
+    lw $s1, -16($fp)
+    lw $s2, -20($fp)
+    lw $s3, -24($fp)
+    lw $s4, -28($fp)
+    lw $s5, -32($fp)
+    lw $s6, -36($fp)
+    lw $s7, -40($fp)
+    lw $ra, -8($fp)
     move $sp, $fp
-    lw $t0, -4($fp)
-    move $fp, $t0
+    lw $fp, -4($fp)
     jr $ra
 L119:
 L101:
     sw $fp, -4($sp)
     move $fp, $sp
-    addi $t0, $sp, -12
+    addi $t0, $sp, -44
     move $sp, $t0
     sw $ra, -8($fp)
-    sw $a0, -12($fp)
+    sw $s0, -12($fp)
+    sw $s1, -16($fp)
+    sw $s2, -20($fp)
+    sw $s3, -24($fp)
+    sw $s4, -28($fp)
+    sw $s5, -32($fp)
+    sw $s6, -36($fp)
+    sw $s7, -40($fp)
+    sw $a0, -44($fp)
     move $t0, $a1
     li $t1, 0
     beq $t0, $t1, L116
@@ -55,11 +77,17 @@ L115:
     move $t0, $t0
 L118:
     move $v0, $t0
-    lw $t0, -8($fp)
-    move $ra, $t0
+    lw $s0, -12($fp)
+    lw $s1, -16($fp)
+    lw $s2, -20($fp)
+    lw $s3, -24($fp)
+    lw $s4, -28($fp)
+    lw $s5, -32($fp)
+    lw $s6, -36($fp)
+    lw $s7, -40($fp)
+    lw $ra, -8($fp)
     move $sp, $fp
-    lw $t0, -4($fp)
-    move $fp, $t0
+    lw $fp, -4($fp)
     jr $ra
 L116:
     la $t0, L111
@@ -82,48 +110,62 @@ L120:
 L106:
     sw $fp, -4($sp)
     move $fp, $sp
-    addi $t0, $sp, -12
+    addi $t0, $sp, -44
     move $sp, $t0
     sw $ra, -8($fp)
-    sw $a0, -12($fp)
-    move $t2, $a1
+    sw $s0, -12($fp)
+    sw $s1, -16($fp)
+    sw $s2, -20($fp)
+    sw $s3, -24($fp)
+    sw $s4, -28($fp)
+    sw $s5, -32($fp)
+    sw $s6, -36($fp)
+    sw $s7, -40($fp)
+    sw $a0, -44($fp)
+    move $s1, $a1
     li $t0, 10
-    blt $t2, $t0, L108
+    blt $s1, $t0, L108
 L109:
-    lw $t0, -12($fp)
+    lw $t0, -44($fp)
     move $a0, $t0
     li $t0, 10
-    div $t0, $t2, $t0
+    div $t0, $s1, $t0
     move $a1, $t0
     jal L106
     move $t0, $v0
-    move $t1, $t0
-    lw $t0, -12($fp)
+    move $s0, $t0
+    lw $t0, -44($fp)
     move $a0, $t0
     li $t0, 10
-    div $t3, $t2, $t0
+    div $t1, $s1, $t0
     li $t0, 10
-    mul $t0, $t3, $t0
-    sub $t0, $t2, $t0
+    mul $t0, $t1, $t0
+    sub $t0, $s1, $t0
     move $a1, $t0
     jal L105
     move $t0, $v0
-    move $a0, $t1
+    move $a0, $s0
     move $a1, $t0
     jal tig_concat
     move $t0, $v0
 L110:
     move $v0, $t0
-    lw $t0, -8($fp)
-    move $ra, $t0
+    lw $s0, -12($fp)
+    lw $s1, -16($fp)
+    lw $s2, -20($fp)
+    lw $s3, -24($fp)
+    lw $s4, -28($fp)
+    lw $s5, -32($fp)
+    lw $s6, -36($fp)
+    lw $s7, -40($fp)
+    lw $ra, -8($fp)
     move $sp, $fp
-    lw $t0, -4($fp)
-    move $fp, $t0
+    lw $fp, -4($fp)
     jr $ra
 L108:
-    lw $t0, -12($fp)
+    lw $t0, -44($fp)
     move $a0, $t0
-    move $a1, $t2
+    move $a1, $s1
     jal L105
     move $t0, $v0
     j L110
@@ -131,53 +173,81 @@ L121:
 L105:
     sw $fp, -4($sp)
     move $fp, $sp
-    addi $t0, $sp, -12
+    addi $t0, $sp, -44
     move $sp, $t0
     sw $ra, -8($fp)
-    sw $a0, -12($fp)
-    move $t1, $a1
+    sw $s0, -12($fp)
+    sw $s1, -16($fp)
+    sw $s2, -20($fp)
+    sw $s3, -24($fp)
+    sw $s4, -28($fp)
+    sw $s5, -32($fp)
+    sw $s6, -36($fp)
+    sw $s7, -40($fp)
+    sw $a0, -44($fp)
+    move $s0, $a1
     la $t0, L107
     move $a0, $t0
     jal tig_ord
     move $t0, $v0
-    add $t0, $t0, $t1
+    add $t0, $t0, $s0
     move $a0, $t0
     jal tig_chr
     move $v0, $v0
-    lw $t0, -8($fp)
-    move $ra, $t0
+    lw $s0, -12($fp)
+    lw $s1, -16($fp)
+    lw $s2, -20($fp)
+    lw $s3, -24($fp)
+    lw $s4, -28($fp)
+    lw $s5, -32($fp)
+    lw $s6, -36($fp)
+    lw $s7, -40($fp)
+    lw $ra, -8($fp)
     move $sp, $fp
-    lw $t0, -4($fp)
-    move $fp, $t0
+    lw $fp, -4($fp)
     jr $ra
 L122:
 L100:
     sw $fp, -4($sp)
     move $fp, $sp
-    addi $t0, $sp, -12
+    addi $t0, $sp, -44
     move $sp, $t0
     sw $ra, -8($fp)
-    sw $a0, -12($fp)
+    sw $s0, -12($fp)
+    sw $s1, -16($fp)
+    sw $s2, -20($fp)
+    sw $s3, -24($fp)
+    sw $s4, -28($fp)
+    sw $s5, -32($fp)
+    sw $s6, -36($fp)
+    sw $s7, -40($fp)
+    sw $a0, -44($fp)
     move $t0, $a1
     li $t1, 0
     beq $t0, $t1, L102
 L103:
-    move $t1, $t0
-    lw $t2, -12($fp)
-    move $a0, $t2
+    move $s0, $t0
+    lw $t1, -44($fp)
+    move $a0, $t1
     addi $t0, $t0, -1
     move $a1, $t0
     jal L100
     move $t0, $v0
-    mul $t0, $t1, $t0
+    mul $t0, $s0, $t0
     move $t0, $t0
 L104:
     move $v0, $t0
-    lw $t0, -8($fp)
-    move $ra, $t0
+    lw $s0, -12($fp)
+    lw $s1, -16($fp)
+    lw $s2, -20($fp)
+    lw $s3, -24($fp)
+    lw $s4, -28($fp)
+    lw $s5, -32($fp)
+    lw $s6, -36($fp)
+    lw $s7, -40($fp)
+    lw $ra, -8($fp)
     move $sp, $fp
-    lw $t0, -4($fp)
-    move $fp, $t0
+    lw $fp, -4($fp)
     jr $ra
 L102:
     li $t0, 1
@@ -1008,4 +1078,54 @@ printf:
 exit:
 	li $v0, 10
 	syscall
+
+.data
+    .align 4
+boundsCheckErrorMsg:
+    .asciiz "Array index out of bounds\n"
+# a0 = size of array
+# a1 is index to check
+tig_boundsCheck:
+    blt $a1, $zero, _bounds_error
+    blt $a1, $a0, _end_tig_boundsCheck
+
+_bounds_error:
+    la $a0, boundsCheckErrorMsg
+    li $v0, 4
+    syscall
+    li $a0, 1
+    la $t9, exit
+    jal $ra, $t9
+
+_end_tig_boundsCheck:
+    j $ra
+
+
+# Compares two strings alphabetically (From 250)
+# Registers:
+# - $a0 (argument): Pointer to the first input, moved as we loop
+# - $a1 (argument): Pointer to the second input, moved as we loop
+# - $t0: Current character from 0($a0)
+# - $t1: Current character from 0($a1)
+# - $v0 (return): =0 if strings are equal, <0 if $a0 < $a1, >0 if $a0 > $a1 
+# Leaf function, so using caller-saved to avoid needing to save any registers 
+strcmp:
+  # Load current characer from the string
+  # (In addition to being the start of the function, this is also a loop) 
+  lb $t0, 0($a0)
+  lb $t1, 0($a1)
+
+  # If the characters differ, we are done looping 
+  bne $t0, $t1, done_with_strcmp_loop
+
+  # Otherwise, increment and go back to the start, unless we’ve reached NULL 
+  addi $a0, $a0, 1
+  addi $a1, $a1, 1
+  bnez $t0, strcmp
+
+  # If characters differ or we’ve reached the end, return 
+  done_with_strcmp_loop:
+  sub $v0, $t0, $t1
+  jr $ra
+
 	

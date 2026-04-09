@@ -35,7 +35,9 @@ struct
   val a0 = 4
   val fpOffset = ~wordsize
   val raOffset = ~2 * wordsize
-  val slOffset = ~3 * wordsize
+  val numCalleeSaves = 8
+  val saveOffset = ~3 * wordsize
+  val slOffset = (~3 - numCalleeSaves) * wordsize
 
   local
     fun range (a, b) =
@@ -50,7 +52,7 @@ struct
     (* s registers *)
     val calleesaves = range (16, 23)
     val returnregs = range (2, 3)
-    val precoloredTemps = specialregs @ argregs @ returnregs @ calleesaves
+    val precoloredTemps = specialregs @ argregs @ returnregs @ calleesaves @ callersaves
     val allregs = range (0, 31)
     val preferredRegOrder = SOME (callersaves @ calleesaves @ argregs @ returnregs @ specialregs)
   end
@@ -180,6 +182,13 @@ struct
                   , Tree.TEMP RA
                   ) (* save RA *)
               ]
+        fun saveCalleeSave (reg, (j, acc)) =
+            (j-1, Tree.MOVE
+              ( Tree.MEM (Tree.BINOP
+                  (Tree.PLUS, Tree.TEMP FP, Tree.CONST (saveOffset - j * wordsize)))
+              , Tree.TEMP reg
+              ) :: acc)
+        
         fun argMoveStatement (InReg r, (j, acc)) =
             (j-1, (Tree.MOVE (Tree.TEMP r, getArgLocation j) :: acc)) (* move args to temps *)
         | argMoveStatement (InFrame offs, (j, acc)) = 
@@ -187,15 +196,17 @@ struct
 
         val (_, argMoves) =
           foldr argMoveStatement (List.length formalAccesses - 1, []) formalAccesses
+
+        val (_, calleeSaveMoves) =
+          foldr saveCalleeSave (numCalleeSaves - 1, []) calleesaves
     in
-      seq [prologueCode, seq argMoves]
+      seq [prologueCode, seq calleeSaveMoves, seq argMoves]
     end
 
 
   fun epilogue (body) =
-    seq
-      [Tree.MOVE (Tree.TEMP RV, body),
-        Tree.MOVE (Tree.TEMP RA, Tree.MEM (Tree.BINOP
+    let
+      val prologueCode = seq[Tree.MOVE (Tree.TEMP RA, Tree.MEM (Tree.BINOP
           (Tree.PLUS, Tree.TEMP FP, Tree.CONST raOffset)))
       , (* restore RA *)
         Tree.MOVE (Tree.TEMP SP, Tree.TEMP FP)
@@ -205,6 +216,20 @@ struct
       , (* restore FP *)
         Tree.JUMP (Tree.TEMP RA, [])
       ]
+      fun restoreCalleeSave (reg, (j, acc)) =
+            (j-1, Tree.MOVE
+              ( Tree.TEMP reg
+              , Tree.MEM (Tree.BINOP
+                  (Tree.PLUS, Tree.TEMP FP, Tree.CONST (saveOffset - j * wordsize)))
+              ) :: acc)
+      val (_, calleeSaveRestores) =
+        foldr restoreCalleeSave (numCalleeSaves - 1, []) calleesaves
+
+    in
+      seq [Tree.MOVE (Tree.TEMP RV, body), seq calleeSaveRestores, prologueCode]
+    end
+    
+      
 
   fun framesize (frame: frame) =
     let
@@ -240,8 +265,9 @@ struct
         | oneFormalToAccess (false, (offset, formals)) =
             (offset, (InReg (Temp.newtemp ())) :: formals)
       val raFpSpace = 2 * wordsize
+      val raFpSaveSpace = raFpSpace + numCalleeSaves * wordsize
       val (numBytesForFormals, accesses) =
-        foldl oneFormalToAccess (raFpSpace, []) formals
+        foldl oneFormalToAccess (raFpSaveSpace, []) formals
       val f =
         { name = name
         , formals = List.rev accesses

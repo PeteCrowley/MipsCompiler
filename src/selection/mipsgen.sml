@@ -56,6 +56,30 @@ struct
               , dst = []
               , jump = NONE
               })
+        (* Load: s1 = MEM[s0 + i] *)
+        | munchStm (Tree.MOVE (Tree.TEMP t, Tree.MEM (Tree.BINOP (Tree.PLUS, e1, Tree.CONST i)))) =
+            emit (Assem.OPER
+              { assem = "    lw `d0, " ^ betterIntToString i ^ "(`s0)\n"
+              , src = [munchExp e1]
+              , dst = [t]
+              , jump = NONE
+              })
+        (* Load: s1 = MEM[i + s0] *)
+        | munchStm (Tree.MOVE (Tree.TEMP t, Tree.MEM (Tree.BINOP (Tree.PLUS, Tree.CONST i, e1)))) =
+            emit (Assem.OPER
+              { assem = "    lw `d0, " ^ betterIntToString i ^ "(`s0)\n"
+              , src = [munchExp e1]
+              , dst = [t]
+              , jump = NONE
+              })
+        (* Load: s1 = MEM[s0] *)
+        | munchStm (Tree.MOVE (Tree.TEMP t, Tree.MEM e1)) =
+            emit (Assem.OPER
+              { assem = "    lw `d0, 0(`s0)\n"
+              , src = [munchExp e1]
+              , dst = [t]
+              , jump = NONE
+              })
         (* Generic move *)
         | munchStm (Tree.MOVE (Tree.TEMP t, e1)) =
             emit
