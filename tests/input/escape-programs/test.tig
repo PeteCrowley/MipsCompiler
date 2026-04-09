@@ -1,0 +1,9 @@
+let
+    var N := 10
+    type y = array of int
+    function f(x):int = (
+        N
+    )
+in
+    f (x)
+end

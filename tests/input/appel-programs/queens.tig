@@ -10,6 +10,30 @@ let
     var diag1 := intArray [N+N-1] of 0
     var diag2 := intArray [N+N-1] of 0
 
+    var numSolutions := 0
+
+    function intToString(n:int):string =
+    let
+        function digitToString(d:int):string =
+            chr(ord("0") + d)
+
+        function absToString(x:int):string =
+            if x < 10 then
+                digitToString(x)
+            else
+                concat(
+                    absToString(x / 10),
+                    digitToString(x - (x / 10) * 10)
+                )
+    in
+        if n = 0 then
+            "0"
+        else if n < 0 then
+            concat("-", absToString(0 - n))
+        else
+            absToString(n)
+    end
+
     function printboard() =
        (for i := 0 to N-1
 	 do (for j := 0 to N-1 
@@ -20,7 +44,7 @@ let
     function try(c:int) = 
 ( /*  for i:= 0 to c do print("."); print("\n"); flush();*/
      if c=N
-     then printboard()
+     then (numSolutions := numSolutions + 1; printboard())
      else for r := 0 to N-1
 	   do if row[r]=0 & diag1[r+c]=0 & diag2[r+7-c]=0
 	           then (row[r]:=1; diag1[r+c]:=1; diag2[r+7-c]:=1;
@@ -29,6 +53,6 @@ let
 			 row[r]:=0; diag1[r+c]:=0; diag2[r+7-c]:=0)
 
 )
- in try(0)
+ in (try(0); print(concat(concat("\nNumber of solutions: ", intToString(numSolutions)), "\n")))
 end
 	

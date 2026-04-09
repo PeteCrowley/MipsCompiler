@@ -51,6 +51,16 @@ struct
       handle e => (TextIO.closeOut out; raise e)
     end
 
+  fun basename path =
+    let
+        fun loop ([], last) = last
+          | loop (""::xs, last) = loop(xs, last)
+          | loop (x::xs, _) = loop(xs, x)
+    in
+        loop (String.tokens (fn c => c = #"/") path, "")
+    end
+    
+
   fun compile filename =
     let
       val () = Translate.resetFrags ()
@@ -70,7 +80,7 @@ struct
                Frame.PROC _ => true
              | _ => false) frags
     in
-      withOpenFile (filename ^ ".s") (fn out => (
+      withOpenFile ("tests/output/assem/" ^ basename filename ^ ".s") (fn out => (
         printDotData out; 
         app (emitproc out) stringFrags; 
         printDotText out;

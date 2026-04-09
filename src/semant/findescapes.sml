@@ -171,7 +171,7 @@ struct
                in
                  traverseDecs (varEnv, d, rest)
                end
-           | Absyn.TypeDec _ => env)
+             | Absyn.TypeDec _ => traverseDecs (env, d, rest))
         end
     | traverseDecs (env: escEnv, d: depth, []) = env
 

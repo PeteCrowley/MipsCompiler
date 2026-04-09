@@ -294,7 +294,7 @@ struct
       , test_dirs = ["typecheck-programs", "appel-programs"]
       , test_fn = typecheck
       }
-    , {test_name = "escape", test_dirs = ["escape-programs"], test_fn = escape}
+    , {test_name = "escape", test_dirs = ["escape-programs", "appel-programs"], test_fn = escape}
     , { test_name = "ir"
       , test_dirs = ["ir-programs", "appel-programs"]
       , test_fn = ir
