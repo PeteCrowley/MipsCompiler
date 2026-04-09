@@ -232,9 +232,11 @@ struct
 
               val format0 = Assem.format (sayTemp)
             in
-              (* app (fn i => TextIO.output (out, format0 i)) newInstrs *)
-              ( Liveness.show (out, igraph)
-              ; TextIO.output (out, printMap regMap)
+              
+              ( 
+               TextIO.output (out, printMap regMap);
+               TextIO.output (out, "\n\n");
+                app (fn i => TextIO.output (out, format0 i)) newInstrs
               )
             end
         | emitproc out (Frame.STRING (lab, s)) =
@@ -258,16 +260,21 @@ struct
              | _ => false) frags
 
       fun do_it () =
+      let
+      in
         ( app (emitproc (TextIO.stdOut)) stringFrags
         ; app (emitproc (TextIO.stdOut)) funcFrags
         )
+      end
+      handle
+        Fail msg => print ("Program raised Fail: " ^ msg)
+        | NotFound => print ("Program raised NotFound\n")
+        
+      
     in
       IOUtil.withOutputFile (output, do_it) ()
     end
-    handle
-      Fail msg => print ("Program raised Fail: " ^ msg)
-    | NotFound =>
-        print ("Program raised NotFound: ") (* FIXME: probably in color*)
+    
 
 
   val allTests =
@@ -293,7 +300,7 @@ struct
       , test_fn = ir
       }
     , { test_name = "selection"
-      , test_dirs = ["selection-programs"]
+      , test_dirs = ["selection-programs", "appel-programs"]
       , test_fn = instruction_selection
       }
     , { test_name = "liveness"

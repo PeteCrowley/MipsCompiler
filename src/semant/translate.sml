@@ -200,16 +200,23 @@ struct
         case level of
           EMPTY => raise Fail "current level cannot be EMPTY"
         | NODE v => v
-      val _ = Frame.allocSpaceForStackArgs (callerFrame, List.length args + 1) (* +1 for static link *)
+      
       val (calleeGrandPar, parentFrame, parentUq) =
         case funcLevel of
           EMPTY => raise Fail "Function level cannot be outermost level"
         | NODE (EMPTY, _, _) => raise Fail "cannot call outermost function"
         | NODE (NODE parentLev, _, _) => parentLev
+      (* functions declared in the outermost level don't need static links *)
+      val needStaticLink = case calleeGrandPar of
+          EMPTY => false
+        | NODE _ => true
+      val numArgs = if needStaticLink then List.length args + 1 else List.length args
+      val _ = Frame.allocSpaceForStackArgs (callerFrame, numArgs) (* +1 for static link *)
       val staticLink = followStaticLinks (level, Tree.TEMP Frame.FP, parentUq)
       val argExps = List.map unEx args
+      val trueArgs = if needStaticLink then staticLink :: argExps else argExps
     in
-      Ex (Tree.CALL (Tree.NAME funcLabel, staticLink :: argExps))
+      Ex (Tree.CALL (Tree.NAME funcLabel, trueArgs))
     end
 
   fun addExp (e1, e2) =
@@ -337,7 +344,7 @@ struct
       val sizeExp = unEx size
       val initExp = unEx init
     in
-      Ex (Frame.externalCall ("initArray", [sizeExp, initExp]))
+      Ex (Frame.externalCall ("tig_initArray", [sizeExp, initExp]))
     end
 
   fun arrayAcessExp (arr, index) =
@@ -387,7 +394,7 @@ struct
       Ex (Tree.ESEQ
         ( seq
             [ Tree.MOVE (Tree.TEMP r, Frame.externalCall
-                ( "malloc"
+                ( "tig_allocRecord"
                 , [Tree.BINOP
                      (Tree.MUL, Tree.CONST numFields, Tree.CONST Frame.wordsize)]
                 ))

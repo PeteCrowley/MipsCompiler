@@ -12,6 +12,7 @@ struct
         , initial = Frame.initialMappings
         , spillCost = spillCost
         , registers = Frame.registers
+        , prefRegOrder = Frame.preferredRegOrder
         }
     in
       ( instrs

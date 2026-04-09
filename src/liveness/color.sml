@@ -14,12 +14,14 @@ struct
     end
     structure NodePairSet = RedBlackSetFn(NodePairOrd)
 
-    fun color {interference, initial, spillCost, registers} =
+    fun color {interference, initial, spillCost, registers, prefRegOrder} =
         let
           val K = List.length registers
           val Liveness.IGRAPH {graph, tnode, gtemp, moves} = interference
           fun degree (node, igraph) = NodeSet.numItems (Liveness.IGraph.adj (igraph, node))
-          val okColors = List.tabulate (K, fn i => i)
+          val okColors = case prefRegOrder of 
+              SOME lst => lst
+              | NONE =>List.tabulate (K, fn i => i)
 
           val precoloredNodes =
             let
@@ -52,30 +54,7 @@ struct
                 NodeSet.foldl makeListHelper (NodeSet.empty, NodeSet.empty, NodeSet.empty, NodePairSet.empty, NodeMap.empty) nonPrecoloredNodes
             end
 
-          val (simplifyWorklist, spillWorklist, freezeWorklist, worklistMoves, moveList) = makeWorklists ()
-
-          fun printList [] = ""
-            | printList (x :: xs) = Temp.makestring (gtemp x) ^ " " ^ printList xs
-
-          val () = print (Liveness.IGraph.dbg_dump graph)
-          val () = print ("precolored: " ^ printList (NodeSet.toList precoloredNodes) ^ "\n")
-          val () = print ("simplify: " ^ printList (NodeSet.toList simplifyWorklist) ^ "\n")
-          val () = print ("spill: " ^ printList (NodeSet.toList spillWorklist) ^ "\n")
-          val () = print ("freeze: " ^ printList (NodeSet.toList freezeWorklist) ^ "\n")
-          
-          val spilledNodes = NodeSet.empty
-          val coalescedNodes = NodeSet.empty
-          val coloredNodes = NodeSet.empty
-          val selectStack = []
-
-          val coalescedMoves = NodePairSet.empty
-          val constrainedMoves = NodePairSet.empty
-          val frozenMoves = NodePairSet.empty
-          val activeMoves = NodePairSet.empty
-          
-          val alias = NodeMap.empty
-
-          
+          val (simplifyWl, spillWl, freezeWl, wlMoves, moveList) = makeWorklists ()
 
           fun colorMain (igraph, simplifyWorklist, spillWorklist, freezeWorklist, coalescedNodes, selectStack, activeMoves, worklistMoves, alias) =
             let
@@ -153,7 +132,7 @@ struct
                         let
                           val v = if getAlias y = getAlias u then getAlias x else getAlias y
                           val newActiveMoves = NodePairSet.delete (activeMovesAcc, (x, y))
-                          val (newFreeze, newSimplify) = if not (isMoveRelated (v, activeMovesAcc)) andalso degree (v, igraph) < K then (NodeSet.delete (freezeAcc, v), NodeSet.add (simpAcc, v))
+                          val (newFreeze, newSimplify) = if not (NodeSet.member (precoloredNodes, v)) andalso not (isMoveRelated (v, activeMovesAcc)) andalso degree (v, igraph) < K then (NodeSet.delete (freezeAcc, v), NodeSet.add (simpAcc, v))
                                                         else (freezeAcc, simpAcc)
                         in
                           (newSimplify, newFreeze, newActiveMoves)
@@ -225,8 +204,29 @@ struct
                 else assignColors ()
             end
 
+          fun printList [] = ""
+            | printList (x :: xs) = Temp.makestring (gtemp x) ^ " " ^ printList xs
+
+          val () = print (Liveness.IGraph.dbg_dump graph)
+          val () = print ("precolored: " ^ printList (NodeSet.toList precoloredNodes) ^ "\n")
+          val () = print ("simplify: " ^ printList (NodeSet.toList simplifyWl) ^ "\n")
+          val () = print ("spill: " ^ printList (NodeSet.toList spillWl) ^ "\n")
+          val () = print ("freeze: " ^ printList (NodeSet.toList freezeWl) ^ "\n")
+          
+          val spilledNodes = NodeSet.empty
+          val coalescedNodes = NodeSet.empty
+          val coloredNodes = NodeSet.empty
+          val selectStack = []
+
+          val coalescedMoves = NodePairSet.empty
+          val constrainedMoves = NodePairSet.empty
+          val frozenMoves = NodePairSet.empty
+          val activeMoves = NodePairSet.empty
+          
+          val alias = NodeMap.empty
+
         in
-          (colorMain (graph, simplifyWorklist, spillWorklist, freezeWorklist, coalescedNodes, selectStack, activeMoves, worklistMoves, alias), [])
+          (colorMain (graph, simplifyWl, spillWl, freezeWl, coalescedNodes, selectStack, activeMoves, wlMoves, alias), [])
         end
         
         

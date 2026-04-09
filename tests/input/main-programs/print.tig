@@ -1,0 +1,7 @@
+let
+    var x := 5
+    var y := 15
+    var toPrint := if x < y then "x is less than y" else "x is not less than y"
+in
+    print(toPrint)
+end

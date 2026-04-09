@@ -8,6 +8,7 @@ src/parser/sources.cm
 src/semant/sources.cm
 src/selection/sources.cm
 src/liveness/sources.cm
+src/main.sml
 
 tests/sources.cm
 

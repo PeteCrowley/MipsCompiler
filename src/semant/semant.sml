@@ -929,7 +929,7 @@ struct
     let
       val mainLevel =
         Translate.newLevel
-          {parent = Translate.outermost, name = Temp.namedlabel "tigermain", formals = []}
+          {parent = Translate.outermost, name = Temp.namedlabel "tig_main", formals = []}
       val () = (FindEscape.printEscapes := false; FindEscape.findEscape exp)
       val {exp = mainExp, ty = _} = transExp (Env.base_venv, Env.base_tenv, mainLevel, NONE) exp
 

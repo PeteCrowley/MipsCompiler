@@ -45,20 +45,20 @@ struct
     let
       val table = Symbol.empty
       val pairs =
-        [ (Symbol.symbol "print", getNamedFunEntry (Translate.outermost, Types.ARROW ([Types.STRING], Types.UNIT), [false], "print"))
-        , (Symbol.symbol "flush", getNamedFunEntry (Translate.outermost, Types.ARROW ([], Types.UNIT), [], "flush"))
-        , (Symbol.symbol "getchar", getNamedFunEntry (Translate.outermost, Types.ARROW ([], Types.STRING), [], "getchar"))
-        , (Symbol.symbol "ord", getNamedFunEntry (Translate.outermost, Types.ARROW ([Types.STRING], Types.INT), [false], "ord"))
-        , (Symbol.symbol "chr", getNamedFunEntry (Translate.outermost, Types.ARROW ([Types.INT], Types.STRING), [false], "chr"))
-        , (Symbol.symbol "size", getNamedFunEntry (Translate.outermost, Types.ARROW ([Types.STRING], Types.INT), [false], "size"))
+        [ (Symbol.symbol "print", getNamedFunEntry (Translate.outermost, Types.ARROW ([Types.STRING], Types.UNIT), [false], "tig_print"))
+        , (Symbol.symbol "flush", getNamedFunEntry (Translate.outermost, Types.ARROW ([], Types.UNIT), [], "tig_flush"))
+        , (Symbol.symbol "getchar", getNamedFunEntry (Translate.outermost, Types.ARROW ([], Types.STRING), [], "tig_getchar"))
+        , (Symbol.symbol "ord", getNamedFunEntry (Translate.outermost, Types.ARROW ([Types.STRING], Types.INT), [false], "tig_ord"))
+        , (Symbol.symbol "chr", getNamedFunEntry (Translate.outermost, Types.ARROW ([Types.INT], Types.STRING), [false], "tig_chr"))
+        , (Symbol.symbol "size", getNamedFunEntry (Translate.outermost, Types.ARROW ([Types.STRING], Types.INT), [false], "tig_size"))
         , ( Symbol.symbol "substring"
-          , getNamedFunEntry (Translate.outermost, Types.ARROW ([Types.STRING, Types.INT, Types.INT], Types.STRING), [false, false, false], "substring")
+          , getNamedFunEntry (Translate.outermost, Types.ARROW ([Types.STRING, Types.INT, Types.INT], Types.STRING), [false, false, false], "tig_substring")
           )
         , ( Symbol.symbol "concat"
-          , getNamedFunEntry (Translate.outermost, Types.ARROW ([Types.STRING, Types.STRING], Types.STRING), [false, false], "concat")
+          , getNamedFunEntry (Translate.outermost, Types.ARROW ([Types.STRING, Types.STRING], Types.STRING), [false, false], "tig_concat")
           )
-        , (Symbol.symbol "not", getNamedFunEntry (Translate.outermost, Types.ARROW ([Types.INT], Types.INT), [false], "not"))
-        , (Symbol.symbol "exit", getNamedFunEntry (Translate.outermost, Types.ARROW ([Types.INT], Types.UNIT), [false], "exit"))
+        , (Symbol.symbol "not", getNamedFunEntry (Translate.outermost, Types.ARROW ([Types.INT], Types.INT), [false], "tig_not"))
+        , (Symbol.symbol "exit", getNamedFunEntry (Translate.outermost, Types.ARROW ([Types.INT], Types.UNIT), [false], "tig_exit"))
         ]
     in
       foldl addPairToTable table pairs

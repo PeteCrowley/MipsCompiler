@@ -50,8 +50,9 @@ struct
     (* s registers *)
     val calleesaves = range (16, 23)
     val returnregs = range (2, 3)
-    val precoloredTemps = specialregs @ argregs @ returnregs
+    val precoloredTemps = specialregs @ argregs @ returnregs @ calleesaves
     val allregs = range (0, 31)
+    val preferredRegOrder = SOME (callersaves @ calleesaves @ argregs @ returnregs @ specialregs)
   end
 
   fun getRegName(0) = SOME "$zero"

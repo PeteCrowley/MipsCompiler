@@ -15,6 +15,7 @@ sig
 
   val registers : register list
   val initialMappings : register Temp.Table.table
+  val preferredRegOrder : int list option
 
   val FP: Temp.temp (* frame pointer register *)
   val RV: Temp.temp (* return value register *)
