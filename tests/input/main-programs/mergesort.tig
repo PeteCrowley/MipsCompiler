@@ -1,0 +1,114 @@
+let 
+ type any = {any : int}
+ var buffer := getchar()
+
+function readint(any: any) : int =
+ let var i := 0
+     function isdigit(s : string) : int = 
+		  ord(buffer)>=ord("0") & ord(buffer)<=ord("9")
+     function skipto() =
+       while buffer=" " | buffer="\n"
+         do buffer := getchar()
+  in skipto();
+     any.any := isdigit(buffer);
+     while isdigit(buffer)
+       do (i := i*10+ord(buffer)-ord("0"); buffer := getchar());
+     i
+ end
+
+type list = {first: int, rest: list}
+type listarray = array of list
+
+ function readlist() : list =
+    let var any := any{any=0}
+        var i := readint(any)
+     in if any.any
+         then list{first=i,rest=readlist()}
+         else nil
+    end
+
+    function listlen(l: list) : int = 
+        let
+            function lentail(l: list, len: int): int = 
+                if l=nil then len
+                else lentail(l.rest, len + 1)
+        in
+            lentail(l, 0)
+        end
+
+/*lo is inclusive, hi is not*/
+function sublist(l: list, lo: int, hi: int) : list = 
+let 
+    function listhead(l: list, hi: int): list = 
+        if (l=nil | hi = 0)
+        then nil
+        else list{first=l.first, rest=listhead(l.rest, hi - 1)}
+    function listtail(l: list, lo: int): list = 
+        if (l=nil | lo = 0)
+        then l
+        else listtail(l.rest, lo - 1)
+in
+    listtail(listhead(l, hi), lo)
+end
+
+/* type pll = {first: list, second: list} */
+
+/* list, length of list */
+function splitlist(l: list, n: int) : listarray =
+let
+    var mid := n / 2
+    var l0 := sublist(l, 0, mid)
+    var l1 := sublist(l, mid, n)
+    var ret := listarray[2] of nil
+in
+    ( ret[0] := l0
+    ; ret[1] := l1
+    ; ret 
+    )
+end
+
+ function merge(a: list, b: list) : list =
+   if a=nil then b
+   else if b=nil then a
+   else if a.first < b.first 
+      then list{first=a.first,rest=merge(a.rest,b)}
+      else list{first=b.first,rest=merge(a,b.rest)}
+
+function mergesort(l: list) : list = 
+let
+    var n := listlen(l)
+    var first := if n>0 then l.first else 0
+    var second := if n>1 then l.rest.first else 0
+    var first_ := if n<>2 then 0
+                        else if first <= second then first else second
+    var second_ := if n<>2 then 0
+                        else if first <= second then second else first
+    var splits := splitlist(l, n)
+    var sortedleft := if n > 2 then mergesort(splits[0]) else nil
+    var sortedright := if n > 2 then mergesort(splits[1]) else nil
+in
+    if n<2 then l
+    else if n=2 then list{first=first_, rest=list{first=second_, rest=nil}}
+    else merge(sortedleft, sortedright)
+end
+
+ function printint(i: int) =
+  let function f(i:int) = if i>0 
+	     then (f(i/10); print(chr(i-i/10*10+ord("0"))))
+   in if i<0 then (print("-"); f(-i))
+      else if i>0 then f(i)
+      else print("0")
+  end
+
+ function printlist(l: list) =
+   if l=nil then print("\n")
+   else (printint(l.first); print(" "); printlist(l.rest))
+
+   var list1 := readlist()
+   /* var list2 := (buffer:=getchar(); readlist())*/
+   var splits := splitlist(list1, listlen(list1))
+
+  /* BODY OF MAIN PROGRAM */
+ in ( printlist(mergesort(list1))
+    )
+end
