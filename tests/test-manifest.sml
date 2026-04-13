@@ -274,6 +274,31 @@ struct
     in
       IOUtil.withOutputFile (output, do_it) ()
     end
+
+  fun test_main (input, output) =
+    let
+      fun do_it () =
+        let
+          val () = Main.compile input
+          (* Extract the basename of the input file *)
+          fun basename path =
+            let
+              fun loop ([], last) = last
+                | loop (""::xs, last) = loop(xs, last)
+                | loop (x::xs, _) = loop(xs, x)
+            in
+              loop (String.tokens (fn c => c = #"/") path, "")
+            end
+          val assembled_file = "tests/output/assem/" ^ basename input ^ ".s"
+          val spim_cmd = "spim " ^ assembled_file
+          val status = OS.Process.system (spim_cmd ^ " > " ^ output ^ " 2>&1")
+        in
+          ()
+        end
+    in
+      do_it ()
+    end
+    handle Fail msg => print ("Program raised Fail: " ^ msg)
     
 
 
@@ -310,6 +335,10 @@ struct
     , { test_name = "regalloc"
       , test_dirs = ["selection-programs"]
       , test_fn = regalloc
+      }
+    , { test_name = "main"
+      , test_dirs = ["main-programs"]
+      , test_fn = test_main
       }
     ]
 end
