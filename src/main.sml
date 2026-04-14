@@ -15,12 +15,12 @@ struct
           val (newInstrs, regMap, igraph) = RegAlloc.alloc (instrs, frame)
 
           fun sayTemp i =
-                case IntBinaryMap.find (regMap, i) of
-                  SOME regName => regName
-                | NONE => Temp.makestring i
+            case IntBinaryMap.find (regMap, i) of
+              SOME regName => regName
+            | NONE => Temp.makestring i
 
           val format0 = Assem.format (sayTemp)
-          
+
         in
           app (fn i => TextIO.output (out, format0 i)) instrs
         end
@@ -35,9 +35,9 @@ struct
     let
       val runtime = TextIO.openIn "src/assemruntime/runtime.s"
       fun copyLine () =
-            case TextIO.inputLine runtime of
-              SOME line => (TextIO.output (out, line); copyLine ())
-            | NONE => ()
+        case TextIO.inputLine runtime of
+          SOME line => (TextIO.output (out, line); copyLine ())
+        | NONE => ()
     in
       copyLine ();
       TextIO.closeIn runtime
@@ -53,13 +53,13 @@ struct
 
   fun basename path =
     let
-        fun loop ([], last) = last
-          | loop (""::xs, last) = loop(xs, last)
-          | loop (x::xs, _) = loop(xs, x)
+      fun loop ([], last) = last
+        | loop ("" :: xs, last) = loop (xs, last)
+        | loop (x :: xs, _) = loop (xs, x)
     in
-        loop (String.tokens (fn c => c = #"/") path, "")
+      loop (String.tokens (fn c => c = #"/") path, "")
     end
-    
+
 
   fun compile filename =
     let
@@ -80,12 +80,13 @@ struct
                Frame.PROC _ => true
              | _ => false) frags
     in
-      withOpenFile ("tests/output/assem/" ^ basename filename ^ ".s") (fn out => (
-        printDotData out; 
-        app (emitproc out) stringFrags; 
-        printDotText out;
-        app (emitproc out) funcFrags;
-        copyRuntimeToBottomOfFile out))
+      withOpenFile ("tests/output/assem/" ^ basename filename ^ ".s") (fn out =>
+        ( printDotData out
+        ; app (emitproc out) stringFrags
+        ; printDotText out
+        ; app (emitproc out) funcFrags
+        ; copyRuntimeToBottomOfFile out
+        ))
     end
 
 end

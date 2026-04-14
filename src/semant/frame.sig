@@ -13,9 +13,9 @@ sig
   val formals: frame -> access list
   val allocLocal: frame -> bool -> access
 
-  val registers : register list
-  val initialMappings : register Temp.Table.table
-  val preferredRegOrder : int list option
+  val registers: register list
+  val initialMappings: register Temp.Table.table
+  val preferredRegOrder: int list option
 
   val FP: Temp.temp (* frame pointer register *)
   val RV: Temp.temp (* return value register *)
@@ -28,6 +28,6 @@ sig
   val exp: access -> Tree.exp -> Tree.exp
   val addPrologueEpliogue: frame * Tree.exp -> Tree.stm
   val externalCall: string * Tree.exp list -> Tree.exp
-  val string : Temp.label * string -> string
+  val string: Temp.label * string -> string
   val slOffset: int
 end

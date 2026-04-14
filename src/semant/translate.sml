@@ -137,7 +137,8 @@ struct
         else
           followStaticLinks
             ( parLev
-            , Tree.MEM (Tree.BINOP(Tree.PLUS, currFpAddr, Tree.CONST Frame.slOffset))
+            , Tree.MEM
+                (Tree.BINOP (Tree.PLUS, currFpAddr, Tree.CONST Frame.slOffset))
             , targetUq
             ) (* since static links are stored at offset 0 *)
     | followStaticLinks (EMPTY, _, _) =
@@ -200,18 +201,22 @@ struct
         case level of
           EMPTY => raise Fail "current level cannot be EMPTY"
         | NODE v => v
-      
+
       val (calleeGrandPar, parentFrame, parentUq) =
         case funcLevel of
           EMPTY => raise Fail "Function level cannot be outermost level"
         | NODE (EMPTY, _, _) => raise Fail "cannot call outermost function"
         | NODE (NODE parentLev, _, _) => parentLev
       (* functions declared in the outermost level don't need static links *)
-      val needStaticLink = case calleeGrandPar of
+      val needStaticLink =
+        case calleeGrandPar of
           EMPTY => false
         | NODE _ => true
-      val numArgs = if needStaticLink then List.length args + 1 else List.length args
-      val _ = Frame.allocSpaceForStackArgs (callerFrame, numArgs) (* +1 for static link *)
+      val numArgs =
+        if needStaticLink then List.length args + 1 else List.length args
+      val _ =
+        Frame.allocSpaceForStackArgs
+          (callerFrame, numArgs) (* +1 for static link *)
       val staticLink = followStaticLinks (level, Tree.TEMP Frame.FP, parentUq)
       val argExps = List.map unEx args
       val trueArgs = if needStaticLink then staticLink :: argExps else argExps
@@ -341,24 +346,38 @@ struct
 
   fun arrayExp (size, init) =
     let
-      val sizeExp = Tree.BINOP(Tree.PLUS, unEx size, Tree.CONST 1) (* add one word for array length *)
+      val sizeExp =
+        Tree.BINOP
+          ( Tree.PLUS
+          , unEx size
+          , Tree.CONST 1
+          ) (* add one word for array length *)
       val initExp = unEx init
       val t = Temp.newtemp ()
     in
-      Ex (Tree.ESEQ(seq[Tree.MOVE(Tree.TEMP t, Frame.externalCall ("tig_initArray", [sizeExp, initExp])),
-         Tree.MOVE(Tree.MEM (Tree.TEMP t), unEx size)
-      ], Tree.BINOP(Tree.PLUS, Tree.TEMP t, Tree.CONST Frame.wordsize))) (* return address of first array element *)
+      Ex (Tree.ESEQ
+        ( seq
+            [ Tree.MOVE
+                ( Tree.TEMP t
+                , Frame.externalCall ("tig_initArray", [sizeExp, initExp])
+                )
+            , Tree.MOVE (Tree.MEM (Tree.TEMP t), unEx size)
+            ]
+        , Tree.BINOP (Tree.PLUS, Tree.TEMP t, Tree.CONST Frame.wordsize)
+        )) (* return address of first array element *)
     end
 
   fun arrayAcessExp (arr, index) =
     let
       val arrExp = unEx arr
       val indexExp = unEx index
-      val sizeExp = Tree.MEM (Tree.BINOP(Tree.PLUS, arrExp, Tree.CONST (~Frame.wordsize))) (* array length is stored at offset -1 *)
+      val sizeExp = Tree.MEM (Tree.BINOP
+        (Tree.PLUS, arrExp, Tree.CONST (~ Frame.wordsize))) (* array length is stored at offset -1 *)
     in
       Ex
         (Tree.ESEQ
-           ( Tree.EXP (Frame.externalCall ("tig_boundsCheck", [sizeExp, indexExp]))
+           ( Tree.EXP
+               (Frame.externalCall ("tig_boundsCheck", [sizeExp, indexExp]))
            , Tree.MEM (Tree.BINOP
                ( Tree.PLUS
                , arrExp

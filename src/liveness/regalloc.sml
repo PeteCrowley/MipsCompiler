@@ -21,4 +21,3 @@ struct
       ) (* instrs is fine for now because we won't do any edits for spilling *)
     end
 end
-

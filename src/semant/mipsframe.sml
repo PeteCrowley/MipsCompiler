@@ -52,56 +52,63 @@ struct
     (* s registers *)
     val calleesaves = range (16, 23)
     val returnregs = range (2, 3)
-    val precoloredTemps = specialregs @ argregs @ returnregs @ calleesaves @ callersaves
+    val precoloredTemps =
+      specialregs @ argregs @ returnregs @ calleesaves @ callersaves
     val allregs = range (0, 31)
-    val preferredRegOrder = SOME (callersaves @ calleesaves @ argregs @ returnregs @ specialregs)
+    val preferredRegOrder = SOME
+      (callersaves @ calleesaves @ argregs @ returnregs @ specialregs)
   end
 
-  fun getRegName(0) = SOME "$zero"
-    | getRegName(1) = SOME "$at"
-    | getRegName(2) = SOME "$v0"
-    | getRegName(3) = SOME "$v1"
-    | getRegName(4) = SOME "$a0"
-    | getRegName(5) = SOME "$a1"
-    | getRegName(6) = SOME "$a2"
-    | getRegName(7) = SOME "$a3"
-    | getRegName(8) = SOME "$t0"
-    | getRegName(9) = SOME "$t1"
-    | getRegName(10) =SOME "$t2"
-    | getRegName(11) =SOME "$t3"
-    | getRegName(12) =SOME "$t4"
-    | getRegName(13) =SOME "$t5"
-    | getRegName(14) =SOME "$t6"
-    | getRegName(15) =SOME "$t7"
-    | getRegName(16) =SOME "$s0"
-    | getRegName(17) =SOME "$s1"
-    | getRegName(18) = SOME "$s2"
-    | getRegName(19) = SOME "$s3"
-    | getRegName(20) = SOME "$s4"
-    | getRegName(21) = SOME "$s5"
-    | getRegName(22) = SOME "$s6"
-    | getRegName(23) = SOME "$s7"
-    | getRegName(24) = SOME "$t8"
-    | getRegName(25) = SOME "$t9"
-    | getRegName(26) = SOME "$k0"
-    | getRegName(27) = SOME "$k1"
-    | getRegName(28) = SOME "$gp"
-    | getRegName(29) = SOME "$sp"
-    | getRegName(30) = SOME "$fp"
-    | getRegName(31) = SOME "$ra"
+  fun getRegName (0) = SOME "$zero"
+    | getRegName (1) = SOME "$at"
+    | getRegName (2) = SOME "$v0"
+    | getRegName (3) = SOME "$v1"
+    | getRegName (4) = SOME "$a0"
+    | getRegName (5) = SOME "$a1"
+    | getRegName (6) = SOME "$a2"
+    | getRegName (7) = SOME "$a3"
+    | getRegName (8) = SOME "$t0"
+    | getRegName (9) = SOME "$t1"
+    | getRegName (10) = SOME "$t2"
+    | getRegName (11) = SOME "$t3"
+    | getRegName (12) = SOME "$t4"
+    | getRegName (13) = SOME "$t5"
+    | getRegName (14) = SOME "$t6"
+    | getRegName (15) = SOME "$t7"
+    | getRegName (16) = SOME "$s0"
+    | getRegName (17) = SOME "$s1"
+    | getRegName (18) = SOME "$s2"
+    | getRegName (19) = SOME "$s3"
+    | getRegName (20) = SOME "$s4"
+    | getRegName (21) = SOME "$s5"
+    | getRegName (22) = SOME "$s6"
+    | getRegName (23) = SOME "$s7"
+    | getRegName (24) = SOME "$t8"
+    | getRegName (25) = SOME "$t9"
+    | getRegName (26) = SOME "$k0"
+    | getRegName (27) = SOME "$k1"
+    | getRegName (28) = SOME "$gp"
+    | getRegName (29) = SOME "$sp"
+    | getRegName (30) = SOME "$fp"
+    | getRegName (31) = SOME "$ra"
     | getRegName n = NONE
 
-  val initialMappings = 
+  val initialMappings =
     let
       fun f (temp, acc) =
-            case getRegName temp of
-              SOME reg => Temp.Table.enter (acc, temp, reg)
-            | NONE => acc (* never hit *)
+        case getRegName temp of
+          SOME reg => Temp.Table.enter (acc, temp, reg)
+        | NONE => acc (* never hit *)
     in
       List.foldl f Temp.Table.empty precoloredTemps
     end
 
-  val registers = map (fn x => case getRegName x of SOME n => n | NONE => "") allregs
+  val registers =
+    map
+      (fn x =>
+         case getRegName x of
+           SOME n => n
+         | NONE => "") allregs
 
   fun name (frame: frame) = #name frame
 
@@ -154,51 +161,61 @@ struct
 
   fun prologue (label, stackSpace, formalAccesses) =
     let
-      fun getArgLocation ind = if ind < argRegisterCount 
-          then Tree.TEMP (List.nth (argregs, ind))
-          else Tree.MEM (Tree.BINOP (Tree.PLUS, Tree.TEMP FP, Tree.CONST ((ind - argRegisterCount) * wordsize)))
+      fun getArgLocation ind =
+        if ind < argRegisterCount then
+          Tree.TEMP (List.nth (argregs, ind))
+        else
+          Tree.MEM (Tree.BINOP (Tree.PLUS, Tree.TEMP FP, Tree.CONST
+            ((ind - argRegisterCount) * wordsize)))
 
 
-      val prologueCode =
-            seq
-              [ Tree.LABEL label
-              , Tree.MOVE
-                  ( Tree.MEM
-                      (Tree.BINOP
-                         (Tree.PLUS, Tree.TEMP SP, Tree.CONST fpOffset))
-                  , Tree.TEMP FP
-                  )
-              , (* save old frame pointer in stack *)
-                Tree.MOVE (Tree.TEMP FP, Tree.TEMP SP)
-              , (* update frame pointer *)
-                Tree.MOVE
-                  ( Tree.TEMP SP
-                  , Tree.BINOP (Tree.PLUS, Tree.TEMP SP, Tree.CONST (~stackSpace))
-                  )
-              , (* decrement stack pointer *)
-                Tree.MOVE
-                  ( Tree.MEM (Tree.BINOP
-                      (Tree.PLUS, Tree.TEMP FP, Tree.CONST raOffset))
-                  , Tree.TEMP RA
-                  ) (* save RA *)
-              ]
-        fun saveCalleeSave (reg, (j, acc)) =
-            (j-1, Tree.MOVE
-              ( Tree.MEM (Tree.BINOP
-                  (Tree.PLUS, Tree.TEMP FP, Tree.CONST (saveOffset - j * wordsize)))
-              , Tree.TEMP reg
-              ) :: acc)
-        
-        fun argMoveStatement (InReg r, (j, acc)) =
-            (j-1, (Tree.MOVE (Tree.TEMP r, getArgLocation j) :: acc)) (* move args to temps *)
-        | argMoveStatement (InFrame offs, (j, acc)) = 
-            (j-1, (Tree.MOVE(Tree.MEM (Tree.BINOP(Tree.PLUS, Tree.TEMP FP, Tree.CONST offs)), getArgLocation j) :: acc)) (* move args to stack *)
+      val prologueCode = seq
+        [ Tree.LABEL label
+        , Tree.MOVE
+            ( Tree.MEM
+                (Tree.BINOP (Tree.PLUS, Tree.TEMP SP, Tree.CONST fpOffset))
+            , Tree.TEMP FP
+            )
+        , (* save old frame pointer in stack *)
+          Tree.MOVE (Tree.TEMP FP, Tree.TEMP SP)
+        , (* update frame pointer *)
+          Tree.MOVE (Tree.TEMP SP, Tree.BINOP
+            (Tree.PLUS, Tree.TEMP SP, Tree.CONST (~stackSpace)))
+        , (* decrement stack pointer *)
+          Tree.MOVE
+            ( Tree.MEM
+                (Tree.BINOP (Tree.PLUS, Tree.TEMP FP, Tree.CONST raOffset))
+            , Tree.TEMP RA
+            ) (* save RA *)
+        ]
+      fun saveCalleeSave (reg, (j, acc)) =
+        ( j - 1
+        , Tree.MOVE
+            ( Tree.MEM (Tree.BINOP (Tree.PLUS, Tree.TEMP FP, Tree.CONST
+                (saveOffset - j * wordsize)))
+            , Tree.TEMP reg
+            ) :: acc
+        )
 
-        val (_, argMoves) =
-          foldr argMoveStatement (List.length formalAccesses - 1, []) formalAccesses
+      fun argMoveStatement (InReg r, (j, acc)) =
+            ( j - 1
+            , (Tree.MOVE (Tree.TEMP r, getArgLocation j) :: acc)
+            ) (* move args to temps *)
+        | argMoveStatement (InFrame offs, (j, acc)) =
+            ( j - 1
+            , (Tree.MOVE
+                 ( Tree.MEM
+                     (Tree.BINOP (Tree.PLUS, Tree.TEMP FP, Tree.CONST offs))
+                 , getArgLocation j
+                 ) :: acc)
+            ) (* move args to stack *)
 
-        val (_, calleeSaveMoves) =
-          foldr saveCalleeSave (numCalleeSaves - 1, []) calleesaves
+      val (_, argMoves) =
+        foldr argMoveStatement (List.length formalAccesses - 1, [])
+          formalAccesses
+
+      val (_, calleeSaveMoves) =
+        foldr saveCalleeSave (numCalleeSaves - 1, []) calleesaves
     in
       seq [prologueCode, seq calleeSaveMoves, seq argMoves]
     end
@@ -206,30 +223,32 @@ struct
 
   fun epilogue (body) =
     let
-      val prologueCode = seq[Tree.MOVE (Tree.TEMP RA, Tree.MEM (Tree.BINOP
-          (Tree.PLUS, Tree.TEMP FP, Tree.CONST raOffset)))
-      , (* restore RA *)
-        Tree.MOVE (Tree.TEMP SP, Tree.TEMP FP)
-      , (* collapse stack frame *)
-        Tree.MOVE (Tree.TEMP FP, Tree.MEM (Tree.BINOP
-          (Tree.PLUS, Tree.TEMP FP, Tree.CONST fpOffset)))
-      , (* restore FP *)
-        Tree.JUMP (Tree.TEMP RA, [])
-      ]
+      val prologueCode = seq
+        [ Tree.MOVE (Tree.TEMP RA, Tree.MEM
+            (Tree.BINOP (Tree.PLUS, Tree.TEMP FP, Tree.CONST raOffset)))
+        , (* restore RA *)
+          Tree.MOVE (Tree.TEMP SP, Tree.TEMP FP)
+        , (* collapse stack frame *)
+          Tree.MOVE (Tree.TEMP FP, Tree.MEM
+            (Tree.BINOP (Tree.PLUS, Tree.TEMP FP, Tree.CONST fpOffset)))
+        , (* restore FP *)
+          Tree.JUMP (Tree.TEMP RA, [])
+        ]
       fun restoreCalleeSave (reg, (j, acc)) =
-            (j-1, Tree.MOVE
-              ( Tree.TEMP reg
-              , Tree.MEM (Tree.BINOP
-                  (Tree.PLUS, Tree.TEMP FP, Tree.CONST (saveOffset - j * wordsize)))
-              ) :: acc)
+        ( j - 1
+        , Tree.MOVE
+            ( Tree.TEMP reg
+            , Tree.MEM (Tree.BINOP (Tree.PLUS, Tree.TEMP FP, Tree.CONST
+                (saveOffset - j * wordsize)))
+            ) :: acc
+        )
       val (_, calleeSaveRestores) =
         foldr restoreCalleeSave (numCalleeSaves - 1, []) calleesaves
 
     in
       seq [Tree.MOVE (Tree.TEMP RV, body), seq calleeSaveRestores, prologueCode]
     end
-    
-      
+
 
   fun framesize (frame: frame) =
     let
@@ -256,12 +275,14 @@ struct
     Tree.CALL (Tree.NAME (Temp.namedlabel funcName), args)
 
   (* To-do move this to .word and then .ascii *)
-  fun string (lab, s) = Symbol.name lab ^ ": .word " ^ Int.toString (String.size s) ^ "\n" ^ ".ascii " ^ "\"" ^ s ^ "\"\n"
+  fun string (lab, s) =
+    Symbol.name lab ^ ": .word " ^ Int.toString (String.size s) ^ "\n"
+    ^ ".ascii " ^ "\"" ^ s ^ "\"\n"
 
   fun newFrame {name: Temp.label, formals: bool list} =
     let
       fun oneFormalToAccess (true, (offset, formals)) =
-            (offset + wordsize, (InFrame (~(offset+wordsize))) :: formals)
+            (offset + wordsize, (InFrame (~(offset + wordsize))) :: formals)
         | oneFormalToAccess (false, (offset, formals)) =
             (offset, (InReg (Temp.newtemp ())) :: formals)
       val raFpSpace = 2 * wordsize

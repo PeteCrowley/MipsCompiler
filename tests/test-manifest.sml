@@ -232,11 +232,10 @@ struct
 
               val format0 = Assem.format (sayTemp)
             in
-              
-              ( 
-               TextIO.output (out, printMap regMap);
-               TextIO.output (out, "\n\n");
-                app (fn i => TextIO.output (out, format0 i)) newInstrs
+
+              ( TextIO.output (out, printMap regMap)
+              ; TextIO.output (out, "\n\n")
+              ; app (fn i => TextIO.output (out, format0 i)) newInstrs
               )
             end
         | emitproc out (Frame.STRING (lab, s)) =
@@ -260,17 +259,16 @@ struct
              | _ => false) frags
 
       fun do_it () =
-      let
-      in
-        ( app (emitproc (TextIO.stdOut)) stringFrags
-        ; app (emitproc (TextIO.stdOut)) funcFrags
-        )
-      end
-      handle
-        Fail msg => print ("Program raised Fail: " ^ msg)
+        let in
+          ( app (emitproc (TextIO.stdOut)) stringFrags
+          ; app (emitproc (TextIO.stdOut)) funcFrags
+          )
+        end
+        handle
+          Fail msg => print ("Program raised Fail: " ^ msg)
         | NotFound => print ("Program raised NotFound\n")
-        
-      
+
+
     in
       IOUtil.withOutputFile (output, do_it) ()
     end
@@ -284,8 +282,8 @@ struct
           fun basename path =
             let
               fun loop ([], last) = last
-                | loop (""::xs, last) = loop(xs, last)
-                | loop (x::xs, _) = loop(xs, x)
+                | loop ("" :: xs, last) = loop (xs, last)
+                | loop (x :: xs, _) = loop (xs, x)
             in
               loop (String.tokens (fn c => c = #"/") path, "")
             end
@@ -299,7 +297,6 @@ struct
       do_it ()
     end
     handle Fail msg => print ("Program raised Fail: " ^ msg)
-    
 
 
   val allTests =
@@ -319,7 +316,10 @@ struct
       , test_dirs = ["typecheck-programs", "appel-programs"]
       , test_fn = typecheck
       }
-    , {test_name = "escape", test_dirs = ["escape-programs", "appel-programs"], test_fn = escape}
+    , { test_name = "escape"
+      , test_dirs = ["escape-programs", "appel-programs"]
+      , test_fn = escape
+      }
     , { test_name = "ir"
       , test_dirs = ["ir-programs", "appel-programs"]
       , test_fn = ir
@@ -336,9 +336,6 @@ struct
       , test_dirs = ["selection-programs"]
       , test_fn = regalloc
       }
-    , { test_name = "main"
-      , test_dirs = ["main-programs"]
-      , test_fn = test_main
-      }
+    , {test_name = "main", test_dirs = ["main-programs"], test_fn = test_main}
     ]
 end

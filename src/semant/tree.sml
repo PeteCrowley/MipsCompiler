@@ -44,7 +44,7 @@ sig
   | UGT
   | UGE
 
-val notRel : relop -> relop
+  val notRel: relop -> relop
 (* val commute: relop -> relop *)
 end
 
@@ -105,7 +105,7 @@ struct
     | notRel UGT = ULE
     | notRel UGE = ULT
 
-  (* fun commute EQ = EQ
-    | commute NE = NE *)
+(* fun commute EQ = EQ
+  | commute NE = NE *)
 
 end
