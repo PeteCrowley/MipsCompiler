@@ -1,0 +1,119 @@
+let
+    var size := 40
+    type intArray = array of int
+    var arr := intArray [40] of 0
+
+    function intToString(n:int):string =
+    let
+        function digitToString(d:int):string =
+            chr(ord("0") + d)
+
+        function absToString(x:int):string =
+            if x < 10 then
+                digitToString(x)
+            else
+                concat(absToString(x / 10), digitToString(x - (x / 10) * 10))
+    in
+        if n = 0 then
+            "0"
+        else if n < 0 then
+            concat("-", absToString(0 - n))
+        else
+            absToString(n)
+    end
+
+    function mod(n:int, m:int):int =
+        n - (n / m) * m
+
+    function nextRand(x:int):int =
+        mod(x * 25173 + 13849, 32768)
+
+    function fill(seed:int) =
+    let
+        var i := 0
+        var x := seed
+    in
+        while i < size do
+        (
+            x := nextRand(x);
+            arr[i] := x;
+            i := i + 1
+        )
+    end
+
+    function insertionSort() =
+    let
+        var i := 1
+        var j := 0
+        var key := 0
+    in
+        while i < size do
+        (
+            key := arr[i];
+            j := i - 1;
+            while j >= 0 do
+            (
+                if arr[j] > key then
+                (
+                    arr[j + 1] := arr[j];
+                    j := j - 1
+                )
+                else
+                    j := 0 - 1
+            );
+            arr[j + 1] := key;
+            i := i + 1
+        )
+    end
+
+    function countEvens():int =
+    let
+        var i := 0
+        var total := 0
+    in
+        (
+            while i < size do
+            (
+                if mod(arr[i], 2) = 0 then
+                    total := total + 1
+                else
+                    total := total;
+                i := i + 1
+            );
+            total
+        )
+    end
+
+    function sumAll():int =
+    let
+        var i := 0
+        var total := 0
+    in
+        (
+            while i < size do
+            (
+                total := total + arr[i];
+                i := i + 1
+            );
+            total
+        )
+    end
+
+    var evens := 0
+    var sum := 0
+in
+    fill(12345);
+    insertionSort();
+    evens := countEvens();
+    sum := sumAll();
+    print(concat("min=", intToString(arr[0])));
+    print("\n");
+    print(concat("median=", intToString(arr[size / 2])));
+    print("\n");
+    print(concat("max=", intToString(arr[size - 1])));
+    print("\n");
+    print(concat("sum=", intToString(sum)));
+    print("\n");
+    print(concat("evens=", intToString(evens)));
+    print("\n")
+end

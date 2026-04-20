@@ -1,0 +1,310 @@
+let
+    var SCALE := 1000
+    var IN := 3
+    var H := 4
+    var OUT := 2
+    var LR := 50
+    var TRAIN_SAMPLES := 1000
+    var EVAL_SAMPLES := 100
+
+    type intArray = array of int
+    type intMatrix = array of intArray
+
+    var x := intArray [3] of 0
+    var t := intArray [2] of 0
+
+    var w1 := intMatrix [4] of intArray [3] of 0
+    var b1 := intArray [4] of 0
+    var z1 := intArray [4] of 0
+    var h := intArray [4] of 0
+
+    var w2 := intMatrix [2] of intArray [4] of 0
+    var b2 := intArray [2] of 0
+    var y := intArray [2] of 0
+
+    var gw1 := intMatrix [4] of intArray [3] of 0
+    var gb1 := intArray [4] of 0
+    var gw2 := intMatrix [2] of intArray [4] of 0
+    var gb2 := intArray [2] of 0
+    var dy := intArray [2] of 0
+    var dz1 := intArray [4] of 0
+    var rng := 1338 /* change this value to get a different seed */
+
+    function intToString(n:int):string =
+    let
+        function digitToString(d:int):string =
+            chr(ord("0") + d)
+
+        function absToString(x:int):string =
+            if x < 10 then
+                digitToString(x)
+            else
+                concat(absToString(x / 10), digitToString(x - (x / 10) * 10))
+    in
+        if n = 0 then
+            "0"
+        else if n < 0 then
+            concat("-", absToString(0 - n))
+        else
+            absToString(n)
+    end
+
+    function fxMul(a:int, b:int):int =
+        (a * b) / SCALE
+
+    function mod(n:int, m:int):int =
+        n - (n / m) * m
+
+    function nextRand():int =
+    (
+        rng := mod(rng * 25173 + 13849, 32768);
+        rng
+    )
+
+    function randWeight():int =
+        mod(nextRand(), 101) - 50
+
+    function relu(z:int):int =
+        if z < 0 then 0 else z
+
+    function reluGrad(z:int):int =
+        if z > 0 then SCALE else 0
+
+    function initInput() =
+    (
+        x[0] := 1200;
+        x[1] := 700;
+        x[2] := 500
+    )
+
+    function setTargetByRule() =
+        if x[0] + x[1] > x[2] then
+        (
+            t[0] := SCALE;
+            t[1] := 0
+        )
+        else
+        (
+            t[0] := 0;
+            t[1] := SCALE
+        )
+
+    function generateSample() =
+    (
+        /* Keep inputs in [0, 1.999] fixed-point range with SCALE=1000. */
+        x[0] := mod(nextRand(), 2000);
+        x[1] := mod(nextRand(), 2000);
+        x[2] := mod(nextRand(), 2000);
+        setTargetByRule()
+    )
+
+    function initModel() =
+    (
+        w1[0] := intArray [3] of 0;
+        w1[1] := intArray [3] of 0;
+        w1[2] := intArray [3] of 0;
+        w1[3] := intArray [3] of 0;
+
+        w2[0] := intArray [4] of 0;
+        w2[1] := intArray [4] of 0;
+
+        gw1[0] := intArray [3] of 0;
+        gw1[1] := intArray [3] of 0;
+        gw1[2] := intArray [3] of 0;
+        gw1[3] := intArray [3] of 0;
+
+        gw2[0] := intArray [4] of 0;
+        gw2[1] := intArray [4] of 0;
+
+        for i := 0 to H - 1 do
+            for j := 0 to IN - 1 do
+                w1[i][j] := randWeight();
+
+        b1[0] := 100; b1[1] := -50; b1[2] := 200; b1[3] := -120;
+
+        for i := 0 to OUT - 1 do
+            for j := 0 to H - 1 do
+                w2[i][j] := randWeight();
+
+        b2[0] := 30;
+        b2[1] := -40
+    )
+
+    function forwardHidden() =
+        for i := 0 to H - 1 do
+            let
+                var j := 0
+                var acc := b1[i]
+            in
+                (
+                    while j < IN do
+                    (
+                        acc := acc + fxMul(w1[i][j], x[j]);
+                        j := j + 1
+                    );
+                    z1[i] := acc;
+                    h[i] := relu(acc)
+                )
+            end
+
+    function forwardOutput() =
+        for i := 0 to OUT - 1 do
+            let
+                var j := 0
+                var acc := b2[i]
+            in
+                (
+                    while j < H do
+                    (
+                        acc := acc + fxMul(w2[i][j], h[j]);
+                        j := j + 1
+                    );
+                    y[i] := acc
+                )
+            end
+
+    function backwardOutput() =
+        for i := 0 to OUT - 1 do
+            let
+                var j := 0
+            in
+                (
+                    dy[i] := y[i] - t[i];
+                    gb2[i] := dy[i];
+                    while j < H do
+                    (
+                        gw2[i][j] := fxMul(dy[i], h[j]);
+                        j := j + 1
+                    )
+                )
+            end
+
+    function backwardHidden() =
+        for j := 0 to H - 1 do
+            let
+                var i := 0
+                var k := 0
+                var sum := 0
+            in
+                (
+                    while i < OUT do
+                    (
+                        sum := sum + fxMul(dy[i], w2[i][j]);
+                        i := i + 1
+                    );
+                    dz1[j] := fxMul(sum, reluGrad(z1[j]));
+                    gb1[j] := dz1[j];
+                    while k < IN do
+                    (
+                        gw1[j][k] := fxMul(dz1[j], x[k]);
+                        k := k + 1
+                    )
+                )
+            end
+
+    function applyGradients() =
+    (
+        for i := 0 to OUT - 1 do
+        (
+            for j := 0 to H - 1 do
+                w2[i][j] := w2[i][j] - fxMul(LR, gw2[i][j]);
+            b2[i] := b2[i] - fxMul(LR, gb2[i])
+        );
+
+        for j := 0 to H - 1 do
+        (
+            for k := 0 to IN - 1 do
+                w1[j][k] := w1[j][k] - fxMul(LR, gw1[j][k]);
+            b1[j] := b1[j] - fxMul(LR, gb1[j])
+        )
+    )
+
+    function train(samples:int) =
+        for s := 0 to samples - 1 do
+        (
+            generateSample();
+            forwardHidden();
+            forwardOutput();
+            backwardOutput();
+            backwardHidden();
+            applyGradients()
+        )
+
+    function evaluateAccuracy(samples:int):int =
+    let
+        var correct := 0
+    in
+        (
+            for s := 0 to samples - 1 do
+            (
+                generateSample();
+                forwardHidden();
+                forwardOutput();
+                if (if y[0] >= y[1] then 0 else 1) = (if t[0] = SCALE then 0 else 1) then
+                    correct := correct + 1
+                else
+                    correct := correct
+            );
+            (correct * SCALE) / samples
+        )
+    end
+
+    function printExamplePredictions(count:int) =
+        for i := 1 to count do
+        (
+            generateSample();
+            forwardHidden();
+            forwardOutput();
+            print(concat("example", intToString(i)));
+            print(": x=[");
+            print(intToString(x[0]));
+            print(",");
+            print(intToString(x[1]));
+            print(",");
+            print(intToString(x[2]));
+            print("] true=");
+            print(intToString(if t[0] = SCALE then 0 else 1));
+            print(" pred=");
+            print(intToString(if y[0] >= y[1] then 0 else 1));
+            print("\n")
+        )
+
+    function argmax2(a:int, b:int):int =
+        if a >= b then 0 else 1
+
+    function printFixed3(name:string, value:int) =
+    let
+        var whole := value / SCALE
+        var frac := value - whole * SCALE
+        var d1 := 0
+        var d2 := 0
+        var d3 := 0
+    in
+        (
+            if frac < 0 then frac := 0 - frac else frac := frac;
+            d1 := frac / 100;
+            frac := frac - d1 * 100;
+            d2 := frac / 10;
+            d3 := frac - d2 * 10;
+            print(name);
+            print(intToString(whole));
+            print(".");
+            print(intToString(d1));
+            print(intToString(d2));
+            print(intToString(d3));
+            print("\n")
+        )
+    end
+
+    var acc := 0
+in
+    initInput();
+    setTargetByRule();
+    initModel();
+
+    train(TRAIN_SAMPLES);
+
+    acc := evaluateAccuracy(EVAL_SAMPLES);
+    printFixed3("accuracy=", acc);
+    printExamplePredictions(3)
+end

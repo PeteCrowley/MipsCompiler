@@ -1,0 +1,86 @@
+let
+    function intToString(n:int):string =
+    let
+        function digitToString(d:int):string =
+            chr(ord("0") + d)
+
+        function absToString(x:int):string =
+            if x < 10 then
+                digitToString(x)
+            else
+                concat(absToString(x / 10), digitToString(x - (x / 10) * 10))
+    in
+        if n = 0 then
+            "0"
+        else if n < 0 then
+            concat("-", absToString(0 - n))
+        else
+            absToString(n)
+    end
+
+    function hasDivisor(n:int, d:int):int =
+        if d > n / 2 then
+            0
+        else if n - (n / d) * d = 0 then
+            1
+        else
+            hasDivisor(n, d + 1)
+
+    function isPrime(n:int):int =
+        if n < 2 then
+            0
+        else if hasDivisor(n, 2) = 1 then
+            0
+        else
+            1
+
+    function sumPrimes(limit:int):int =
+    let
+        var i := 2
+        var total := 0
+    in
+        (
+            while i <= limit do
+            (
+                if isPrime(i) = 1 then
+                    total := total + i
+                else
+                    total := total;
+                i := i + 1
+            );
+            total
+        )
+    end
+
+    function collatzSteps(start:int):int =
+    let
+        var n := start
+        var steps := 0
+    in
+        (
+            while n > 1 do
+            (
+                if n - (n / 2) * 2 = 0 then
+                    n := n / 2
+                else
+                    n := n * 3 + 1;
+                steps := steps + 1
+            );
+            steps
+        )
+    end
+
+    var p100 := sumPrimes(100)
+    var p200 := sumPrimes(200)
+    var c27 := collatzSteps(27)
+    var c97 := collatzSteps(97)
+in
+    print(concat("sumPrimes(100)=", intToString(p100)));
+    print("\n");
+    print(concat("sumPrimes(200)=", intToString(p200)));
+    print("\n");
+    print(concat("collatzSteps(27)=", intToString(c27)));
+    print("\n");
+    print(concat("collatzSteps(97)=", intToString(c97)));
+    print("\n")
+end

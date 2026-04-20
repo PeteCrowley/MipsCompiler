@@ -1,0 +1,92 @@
+let
+    var n := 6
+    type intArray = array of int
+    var a := intArray [36] of 0
+    var b := intArray [36] of 0
+    var c := intArray [36] of 0
+
+    function intToString(n:int):string =
+    let
+        function digitToString(d:int):string =
+            chr(ord("0") + d)
+
+        function absToString(x:int):string =
+            if x < 10 then
+                digitToString(x)
+            else
+                concat(absToString(x / 10), digitToString(x - (x / 10) * 10))
+    in
+        if n = 0 then
+            "0"
+        else if n < 0 then
+            concat("-", absToString(0 - n))
+        else
+            absToString(n)
+    end
+
+    function idx(r:int, col:int):int =
+        r * n + col
+
+    function fillA() =
+        for i := 0 to n - 1 do
+            for j := 0 to n - 1 do
+                a[idx(i, j)] := (i + 2) * (j + 3) + 1
+
+    function fillB() =
+        for i := 0 to n - 1 do
+            for j := 0 to n - 1 do
+                b[idx(i, j)] := (i + 1) + (j + 4) * 2
+
+    function multiply() =
+        for i := 0 to n - 1 do
+            for j := 0 to n - 1 do
+                let
+                    var k := 0
+                    var acc := 0
+                in
+                    (
+                        while k < n do
+                        (
+                            acc := acc + a[idx(i, k)] * b[idx(k, j)];
+                            k := k + 1
+                        );
+                        c[idx(i, j)] := acc
+                    )
+                end
+
+    function checksum():int =
+    let
+        var i := 0
+        var j := 0
+        var total := 0
+    in
+        (
+            while i < n do
+            (
+                j := 0;
+                while j < n do
+                (
+                    total := total + c[idx(i, j)] * (i + 1) + (j + 1);
+                    j := j + 1
+                );
+                i := i + 1
+            );
+            total
+        )
+    end
+
+    var total := 0
+in
+    fillA();
+    fillB();
+    multiply();
+    total := checksum();
+    print(concat("matrixChecksum=", intToString(total)));
+    print("\n");
+    print(concat("topLeft=", intToString(c[idx(0, 0)])));
+    print("\n");
+    print(concat("center=", intToString(c[idx(3, 3)])));
+    print("\n");
+    print(concat("bottomRight=", intToString(c[idx(n - 1, n - 1)])));
+    print("\n")
+end
