@@ -1,0 +1,5 @@
+Loaded: /opt/homebrew/Cellar/spim/9.1.24/share/exceptions.s
+sumPrimes(100)=1060
+sumPrimes(200)=4227
+collatzSteps(27)=111
+collatzSteps(97)=118

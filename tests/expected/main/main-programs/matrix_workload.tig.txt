@@ -1,0 +1,5 @@
+Loaded: /opt/homebrew/Cellar/spim/9.1.24/share/exceptions.s
+matrixChecksum=390264
+topLeft=863
+center=3080
+bottomRight=5218

@@ -1,0 +1,5 @@
+Loaded: /opt/homebrew/Cellar/spim/9.1.24/share/exceptions.s
+accuracy=0.980
+example1: x=[1507,792,1537] true=0 pred=0
+example2: x=[94,495,644] true=1 pred=0
+example3: x=[1901,346,1995] true=0 pred=0

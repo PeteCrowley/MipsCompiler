@@ -1,0 +1,6 @@
+Loaded: /opt/homebrew/Cellar/spim/9.1.24/share/exceptions.s
+min=3697
+median=21180
+max=31722
+sum=876012
+evens=28
